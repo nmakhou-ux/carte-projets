@@ -3,17 +3,17 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Carte Projets — GitHub Sync (nmakhou-ux/carte-projets)</title>
+<title>Carte Projets — Version stable (données intégrées)</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css" />
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
 <style>
   html,body{height:100%;margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial}
-  #layout{display:grid;grid-template-columns:420px 1fr;height:100%}
-  #side{padding:14px;overflow:auto;border-right:1px solid #ddd}
+  #layout{display:grid;grid-template-columns:420px 1fr;height:100vh}
+  #side{padding:14px;overflow:auto;border-right:1px solid #ddd;background:#fafafa}
   #map{width:100%;height:100%}
-  .card{border:1px solid #ddd;border-radius:10px;padding:10px;margin-bottom:10px}
+  .card{border:1px solid #ddd;border-radius:10px;padding:10px;margin-bottom:10px;background:#fff}
   .row{display:flex;gap:8px;flex-wrap:wrap}.row>*{flex:1 1 45%}
   .btn{padding:8px 10px;border:1px solid #bbb;border-radius:8px;background:#f5f5f5;cursor:pointer}
   .btn.warn{background:#ffe9e9;border-color:#f3b0b0}
@@ -28,24 +28,16 @@
 <body>
 <div id="layout">
   <div id="side">
-    <h3>Gestion & Suivi de Projets — GitHub Sync</h3>
+    <h3>Gestion & Suivi de Projets — (stable)</h3>
 
     <div class="card">
       <div class="row">
-        <button class="btn" id="load-github">Charger (GitHub)</button>
-        <button class="btn" id="save-github">Publier (GitHub)</button>
-      </div>
-      <div class="row" style="margin-top:6px">
-        <button class="btn" id="set-token">Enregistrer le token</button>
-        <button class="btn warn" id="clear-token">Effacer le token</button>
-      </div>
-      <div class="row" style="margin-top:6px">
         <button class="btn" id="load-embedded">Charger mes données intégrées</button>
-        <button class="btn" id="publish-embedded">Publier données intégrées → GitHub</button>
+        <button class="btn" id="save-local">Sauvegarder (local)</button>
+        <button class="btn" id="load-local">Charger (local)</button>
       </div>
       <div style="margin-top:6px;font-size:12px;opacity:.9">
-        <small class="mono">nmakhou-ux/carte-projets/main/data/projets.geojson</small><br>
-        Le token (scope: <b>repo</b>) est stocké localement (localStorage).
+        <b>Conseil :</b> commence par <i>“Charger mes données intégrées”</i> (chargé aussi par défaut).
       </div>
     </div>
 
@@ -108,13 +100,7 @@
 </div>
 
 <script>
-// ====== CONFIG ======
-const GH_USER   = "nmakhou-ux";
-const GH_REPO   = "carte-projets";
-const GH_BRANCH = "main";
-const GH_PATH   = "data/projets.geojson";
-
-// Données intégrées (tes points actuels)
+// ===== Données intégrées (tes points) =====
 const INITIAL_DATA = {"type":"FeatureCollection","features":[
   {"type":"Feature","properties":{"nom":"Exemple — Forage de Ndiass","montant":"125000000","montant_decaisse":"80000000","region":"Thiès","statut":"En cours","responsable":"A. Diop","taux_execution":"65"},"geometry":{"type":"Point","coordinates":[-17.07,14.67]}},
   {"type":"Feature","properties":{"nom":"Construction terminal port de dakar","montant":"45000000000","montant_decaisse":"","region":"Dakar","statut":"Planifié","responsable":"DIP","taux_execution":"0"},"geometry":{"type":"Point","coordinates":[-17.442169,14.681911]}},
@@ -127,11 +113,8 @@ const INITIAL_DATA = {"type":"FeatureCollection","features":[
   {"type":"Feature","properties":{"nom":"Construction centre de santé de Linguère","montant":"3000000000","montant_decaisse":"3000000000","region":"Louga","statut":"Terminé","responsable":"","taux_execution":"0"},"geometry":{"type":"Point","coordinates":[-15.249023,15.315976]}}
 ]};
 
-const RAW_URL = `https://raw.githubusercontent.com/${GH_USER}/${GH_REPO}/${GH_BRANCH}/${GH_PATH}`;
-const API_URL = `https://api.github.com/repos/${GH_USER}/${GH_REPO}/contents/${GH_PATH}`;
-
-// ====== Carte ======
-const map = L.map('map').setView([14.7,-17.4], 8);
+// ===== Carte =====
+const map = L.map('map').setView([14.7,-17.4], 7);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OSM'}).addTo(map);
 const allItems = new L.FeatureGroup().addTo(map);
 map.addControl(new L.Control.Draw({draw:{polygon:true,polyline:true,rectangle:true,circle:false,marker:true,circlemarker:false},edit:{featureGroup:allItems}}));
@@ -141,7 +124,6 @@ const STATUS_COLORS={"Planifié":"#1f77b4","En cours":"#2ca02c","En retard":"#d6
 const FALLBACK=["#8c564b","#e377c2","#7f7f7f","#bcbd22","#17becf"];const extra={};
 function colorForStatut(s){if(STATUS_COLORS[s])return STATUS_COLORS[s]; if(!extra[s]) extra[s]=FALLBACK[(Object.keys(extra).length)%FALLBACK.length]; return extra[s];}
 function toFeature(layer){const gj=layer.toGeoJSON(); gj.properties=gj.properties||{}; return gj;}
-function b64(s){return btoa(unescape(encodeURIComponent(s)));}
 function money(n){try{return new Intl.NumberFormat('fr-FR',{maximumFractionDigits:0}).format(n);}catch(e){return String(n);}}
 function pct(x){return isFinite(x)?(Math.round(x*1000)/10)+'%':'0%';}
 function toNum(v){if(v==null||v==='')return 0;const t=(''+v).replace(/\s/g,'').replace(',','.');const n=Number(t);return isFinite(n)?n:0;}
@@ -240,50 +222,23 @@ map.on(L.Draw.Event.CREATED,e=>{let l=e.layer; allItems.addLayer(l); sel=l; l=se
 map.on(L.Draw.Event.EDITED,()=>{refreshTableAndLegend();});
 map.on(L.Draw.Event.DELETED,()=>{sel=null; refreshTableAndLegend();});
 
-// ======= GitHub utils =======
-function getToken(){ let t = localStorage.getItem('gh_token');
-  if (!t) { t = prompt("Collez votre GitHub Personal Access Token (scope: repo) :"); if (!t) return null; localStorage.setItem('gh_token', t); }
-  return t;
-}
-document.getElementById('set-token').onclick=()=>{
-  const t = prompt("Collez votre GitHub Personal Access Token (scope: repo) :");
-  if(t){ localStorage.setItem('gh_token', t); alert("Token enregistré ✔"); }
+// Sauvegarde locale
+const STORAGE_KEY='projets_geojson_static_v1';
+document.getElementById('save-local').onclick=()=>{
+  const feats=[]; allItems.eachLayer(l=>feats.push(toFeature(l)));
+  const fc={type:'FeatureCollection',features:feats};
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(fc));
+  alert('Données sauvegardées en local ✔');
 };
-document.getElementById('clear-token').onclick=()=>{ localStorage.removeItem('gh_token'); alert("Token effacé."); };
+document.getElementById('load-local').onclick=()=>{
+  const t=localStorage.getItem(STORAGE_KEY);
+  if(!t){ alert('Aucune sauvegarde locale trouvée'); return; }
+  try{ renderGeoJSON(JSON.parse(t)); }catch(e){ alert('Lecture locale KO: '+e.message); }
+};
+document.getElementById('load-embedded').onclick=()=>renderGeoJSON(INITIAL_DATA);
 
-// Charger depuis GitHub
-async function loadFromGitHub(){
-  const r = await fetch(RAW_URL, { cache:'no-store' });
-  if(!r.ok){ throw new Error("Fichier distant introuvable"); }
-  const j = await r.json();
-  renderGeoJSON(j);
-}
-
-// Publier vers GitHub (PUT /contents)
-async function saveToGitHub(fc){
-  const token = getToken(); if(!token) return;
-  let sha = null;
-  const head = await fetch(API_URL, { headers:{ Authorization:`Bearer ${token}`, Accept:'application/vnd.github+json' }});
-  if (head.ok) sha = (await head.json()).sha;
-  const res = await fetch(API_URL, {
-    method:'PUT',
-    headers:{ Authorization:`Bearer ${token}`, Accept:'application/vnd.github+json', 'Content-Type':'application/json' },
-    body: JSON.stringify({ message:'update projets.geojson from app',
-                           content: btoa(unescape(encodeURIComponent(JSON.stringify(fc,null,2)))),
-                           sha, branch: GH_BRANCH })
-  });
-  if(!res.ok){ const t=await res.text(); throw new Error(t || 'API GitHub error'); }
-}
-
-// Actions
-document.getElementById('load-github').onclick=async ()=>{ try{ await loadFromGitHub(); alert("Chargé depuis GitHub ✅"); }catch(e){ alert("Chargement GitHub: "+e.message); } };
-document.getElementById('save-github').onclick=async ()=>{ try{ const feats=[]; allItems.eachLayer(l=>feats.push(toFeature(l))); const fc={type:'FeatureCollection',features:feats}; await saveToGitHub(fc); alert("Publié sur GitHub ✅"); }catch(e){ alert("Publication GitHub: "+e.message); } };
-
-document.getElementById('load-embedded').onclick=()=>{ renderGeoJSON(INITIAL_DATA); alert("Données intégrées chargées ✅"); };
-document.getElementById('publish-embedded').onclick=async ()=>{ try{ await saveToGitHub(INITIAL_DATA); renderGeoJSON(INITIAL_DATA); alert("Données intégrées publiées sur GitHub ✅"); }catch(e){ alert("Publication: "+e.message); } };
-
-// Démarrage : GitHub > données intégrées
-(async ()=>{ try{ await loadFromGitHub(); }catch(e){ renderGeoJSON(INITIAL_DATA); } })();
+// Affiche immédiatement
+renderGeoJSON(INITIAL_DATA);
 </script>
 </body>
 </html>
