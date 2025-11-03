@@ -1,288 +1,177 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-<meta charset="utf-8">
+<meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Carte Projets — Application complète</title>
+<title>Carte Projets — Stockage partagé Google Sheets</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css" />
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
 <style>
-  :root { --bg:#0b1020; --panel:#10182e; --card:#121d38; --text:#e8eefc; --muted:#9bb0d3; --border:#20335f; --btn:#20335f; --btn2:#1a2547; --pill:#20335f; }
-  html,body{height:100%;margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;background:var(--bg);color:var(--text);}
-  #layout{display:grid;grid-template-columns:480px 1fr;height:100%;}
-  #side{background:var(--panel);border-right:1px solid var(--border);padding:14px;overflow:auto;}
-  #map{width:100%;height:100%;position:relative;}
-  h1{font-size:18px;margin:0 0 10px 0;}
-  .small{color:var(--muted);font-size:12px;margin-bottom:10px;}
-  .card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px;margin-bottom:12px;}
-  .field{display:flex;flex-direction:column;gap:6px;margin-bottom:10px;}
-  .field label{font-size:12px;color:var(--muted);}
-  .field input,.field select{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text);}
-  .row{display:flex;gap:10px;}
-  .row>*{flex:1;}
-  .btn{background:var(--btn);color:var(--text);border:1px solid var(--border);padding:8px 10px;border-radius:10px;cursor:pointer;}
-  .btn.secondary{background:var(--btn2);}
-  table{width:100%;border-collapse:collapse;font-size:12px;}
-  th,td{border-bottom:1px solid var(--border);padding:6px 4px;text-align:left;vertical-align:top;}
-  th{color:var(--muted);}
-  .badge{display:inline-block;padding:2px 8px;border:1px solid var(--pill);border-radius:999px;font-size:11px;}
-  .legend{position:absolute;bottom:20px;left:20px;z-index:1000;background:#fff;color:#111;border:2px solid #444;border-radius:8px;padding:10px 12px;min-width:180px;}
-  .legend h4{margin:0 0 6px 0;font-size:14px;}
-  .legend .item{display:flex;align-items:center;margin-bottom:4px;}
-  .legend .swatch{width:12px;height:12px;margin-right:8px;border:1px solid #333;display:inline-block;}
-  .notice{display:none;margin-top:6px;padding:8px;background:#2d3b6a;border:1px solid #3a4f8f;border-radius:8px;font-size:12px;}
+  html,body{height:100%;margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial}
+  #layout{display:grid;grid-template-columns:420px 1fr;height:100%}
+  #side{padding:14px;overflow:auto;border-right:1px solid #ddd}
+  #map{width:100%;height:100%}
+  .card{border:1px solid #ddd;border-radius:10px;padding:10px;margin-bottom:10px}
+  .row{display:flex;gap:8px}.row>*{flex:1}
+  .btn{padding:8px 10px;border:1px solid #bbb;border-radius:8px;background:#f5f5f5;cursor:pointer}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{border-bottom:1px solid #eee;padding:6px 4px;text-align:left}
+  .legend{position:absolute;bottom:20px;left:20px;z-index:1000;background:#fff;border:1px solid #333;border-radius:8px;padding:8px 10px}
+  .legend .item{display:flex;align-items:center;gap:6px;margin-bottom:4px}
+  .legend .sw{width:12px;height:12px;border:1px solid #333}
 </style>
 </head>
 <body>
 <div id="layout">
   <div id="side">
-    <h1>Gestion &amp; Suivi de Projets</h1>
-    <div class="small">Marqueurs = <b>points</b> (circleMarker). Popups + saisie + filtres + synthèse + export + HTML autonome.</div>
-
-    <div class="card">
-      <div class="field"><label>Nom du projet</label><input id="nom" placeholder="Ex: Forage de Ndiass"></div>
-      <div class="row">
-        <div class="field"><label>Montant total</label><input id="montant" placeholder="ex: 125000000"></div>
-        <div class="field"><label>Montant décaissé</label><input id="montant_decaisse" placeholder="ex: 80000000"></div>
-      </div>
-      <div class="row">
-        <div class="field"><label>Région</label><input id="region" placeholder="Ex: Thiès"></div>
-        <div class="field">
-          <label>Statut</label>
-          <select id="statut">
-            <option>Planifié</option><option>En cours</option><option>En retard</option><option>Terminé</option>
-          </select>
-        </div>
-      </div>
-      <div class="row">
-        <div class="field"><label>Responsable</label><input id="responsable" placeholder="Ex: A. Diop"></div>
-        <div class="field"><label>Taux d'exécution (%)</label><input id="taux_execution" placeholder="ex: 65"></div>
-      </div>
-      <div class="row">
-        <button class="btn" id="apply">Associer au dessin sélectionné</button>
-        <button class="btn secondary" id="clear">Effacer</button>
-      </div>
-    </div>
+    <h3>Gestion & Suivi de Projets (Sheets)</h3>
 
     <div class="card">
       <div class="row">
+        <button class="btn" id="load-sheets">Charger (Sheets)</button>
+        <button class="btn" id="save-sheets">Publier (Sheets)</button>
+      </div>
+      <div class="row" style="margin-top:6px">
         <button class="btn" id="export">Exporter GeoJSON</button>
-        <button class="btn secondary" id="import">Importer GeoJSON</button>
-      </div>
-      <div class="row" style="margin-top:8px">
-        <button class="btn" id="btn-save">Enregistrer (navigateur)</button>
-        <button class="btn secondary" id="btn-load">Recharger</button>
-      </div>
-      <div class="row" style="margin-top:8px">
-        <button class="btn" id="download-standalone">Télécharger HTML autonome</button>
+        <button class="btn" id="import">Importer GeoJSON</button>
       </div>
       <input type="file" id="file" style="display:none" accept=".geojson,.json" />
-      <div id="notice" class="notice">Aucun projet visible avec ce filtre — affichage précédent rétabli.</div>
+      <div style="margin-top:6px;font-size:12px;opacity:.8">
+        Remplacez la constante <code>SHEETS_URL</code> par l’URL de votre Apps Script (déployé en web app).
+      </div>
     </div>
 
     <div class="card">
-      <div class="small">Filtres</div>
+      <div class="row"><div><label>Nom</label><input id="nom" style="width:100%"></div></div>
       <div class="row">
-        <div class="field">
-          <label>Statut (multi)</label>
-          <select id="filtre-statut" multiple size="4">
+        <div><label>Montant</label><input id="montant" style="width:100%"></div>
+        <div><label>Décaissé</label><input id="montant_decaisse" style="width:100%"></div>
+      </div>
+      <div class="row">
+        <div><label>Région</label><input id="region" style="width:100%"></div>
+        <div><label>Statut</label>
+          <select id="statut" style="width:100%">
             <option>Planifié</option><option>En cours</option><option>En retard</option><option>Terminé</option>
           </select>
         </div>
-        <div class="field">
-          <label>Région (multi)</label>
-          <select id="filtre-region" multiple size="6"></select>
-        </div>
       </div>
       <div class="row">
-        <button class="btn" id="btn-apply-filters">Appliquer</button>
-        <button class="btn secondary" id="btn-reset-filters">Réinitialiser</button>
-        <button class="btn" id="btn-show-all">Tout afficher</button>
+        <div><label>Responsable</label><input id="responsable" style="width:100%"></div>
+        <div><label>Taux exéc. (%)</label><input id="taux_execution" style="width:100%"></div>
+      </div>
+      <div class="row" style="margin-top:6px">
+        <button class="btn" id="apply">Associer au dessin sélectionné</button>
+        <button class="btn" id="clear">Effacer</button>
       </div>
     </div>
 
     <div class="card">
-      <div class="small">Synthèse (filtrée)</div>
-      <div class="row">
-        <div class="field"><b>Total</b> : <span id="sum-total">0</span></div>
-        <div class="field"><b>Décaissé</b> : <span id="sum-decaisse">0</span></div>
-        <div class="field"><b>Taux de décaissement</b> : <span id="sum-taux-dec">0%</span></div>
-        <div class="field"><b>Taux d'exécution</b> (pondéré) : <span id="sum-taux-exec">0%</span></div>
+      <b>Synthèse</b>
+      <div style="margin-top:6px;display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div>Total: <b id="sum-total">0</b></div>
+        <div>Décaissé: <b id="sum-decaisse">0</b></div>
+        <div>Taux décaissement: <b id="sum-taux-dec">0%</b></div>
+        <div>Taux exécution (pondéré): <b id="sum-taux-exec">0%</b></div>
       </div>
-      <div class="row" style="margin-top:8px">
-        <div class="field" style="flex:1">
-          <b>Par statut</b>
-          <div id="sum-by-statut" class="small"></div>
-        </div>
-        <div class="field" style="flex:1">
-          <b>Par région</b>
-          <div id="sum-by-region" class="small"></div>
-        </div>
-      </div>
-      <div class="small" style="margin-top:8px"><b>Tableau de synthèse</b></div>
-      <table>
-        <thead><tr><th>Catégorie</th><th>Montant</th><th>Décaissé</th><th>Taux décaissement</th><th>Taux exécution</th></tr></thead>
-        <tbody id="tbl-synth"></tbody>
-      </table>
     </div>
 
     <div class="card">
-      <div class="small">Liste des projets (filtrés)</div>
+      <b>Liste (affichée)</b>
       <table>
-        <thead><tr><th>Projet</th><th>Région</th><th>Statut</th><th>Montant</th><th>Décaissé</th><th>% Déc.</th><th>% Exéc.</th><th>Responsable</th></tr></thead>
-        <tbody id="tbl-body"></tbody>
+        <thead><tr><th>Projet</th><th>Région</th><th>Statut</th><th>Montant</th><th>Décaissé</th><th>% Déc.</th><th>% Exéc.</th><th>Resp.</th></tr></thead>
+        <tbody id="tbl"></tbody>
       </table>
     </div>
   </div>
 
   <div id="map">
     <div id="legend" class="legend" style="display:none">
-      <h4>Légende — <span id="legendTitle">statut</span></h4>
       <div id="legendItems"></div>
     </div>
   </div>
 </div>
 
 <script>
-// Base
+// === CONFIG: remplacez par l'URL de votre Apps Script déployé (doGet/doPost) ===
+const SHEETS_URL = "https://script.google.com/macros/s/REPLACE_WITH_YOURS/exec";
+
 const map = L.map('map').setView([14.7,-17.4], 8);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution:'© OSM' }).addTo(map);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OSM'}).addTo(map);
 const allItems = new L.FeatureGroup().addTo(map);
 map.addControl(new L.Control.Draw({draw:{polygon:true,polyline:true,rectangle:true,circle:false,marker:true,circlemarker:false},edit:{featureGroup:allItems}}));
-let sel = null;
 
-// Couleurs
-const STATUS_COLORS = {"Planifié":"#1f77b4","En cours":"#2ca02c","En retard":"#d62728","Terminé":"#9467bd"};
-const FALLBACK_PALETTE = ["#8c564b","#e377c2","#7f7f7f","#bcbd22","#17becf"]; const extraColors={};
-function colorForStatut(st){ if(STATUS_COLORS[st]) return STATUS_COLORS[st]; if(!extraColors[st]) extraColors[st]=FALLBACK_PALETTE[(Object.keys(extraColors).length)%FALLBACK_PALETTE.length]; return extraColors[st]; }
-
-// Utils
-function toFeature(layer){ const gj = layer.toGeoJSON(); gj.properties = gj.properties || {}; return gj; }
-function money(n){ try{ return new Intl.NumberFormat('fr-FR',{maximumFractionDigits:0}).format(n); }catch(e){ return String(n); } }
-function pct(x){ return isFinite(x)? (Math.round(x*1000)/10)+'%' : '0%'; }
-function toNum(v){ if(v==null||v==='') return 0; const t=(''+v).replace(/\s/g,'').replace(',','.'); const n=Number(t); return isFinite(n)?n:0; }
-function selectedOptions(sel){ return Array.from(sel.selectedOptions).map(o=>o.value); }
-function norm(s){ if(s==null) return ''; try{ return String(s).normalize('NFD').replace(/\p{Diacritic}/gu,'').toLowerCase().trim(); }catch(e){ return String(s).toLowerCase().trim(); } }
-
-// Popups
-function popupHtml(p){
-  const mt=toNum(p.montant), md=toNum(p.montant_decaisse), tDec = mt>0? md/mt : 0;
-  return `<b>${p.nom||'Projet'}</b><br>
-  <i>Région:</i> ${p.region||''}<br>
-  <i>Statut:</i> ${p.statut||''}<br>
-  <i>Montant:</i> ${p.montant||''}<br>
-  <i>Décaissé:</i> ${p.montant_decaisse||''} (${pct(tDec)})<br>
-  <i>Responsable:</i> ${p.responsable||''}<br>
-  <i>Taux d'exécution:</i> ${p.taux_execution? p.taux_execution+'%' : ''}`;
-}
-function bindUI(layer, p){ layer.bindTooltip(p.nom||'Projet'); layer.bindPopup(popupHtml(p),{maxWidth:420}); }
-
-// Styles & props
-function applyStyle(layer, props){
-  const color = colorForStatut(props.statut||'');
-  if (layer instanceof L.Marker && !layer._isCircle){
-    const cm = L.circleMarker(layer.getLatLng(), {radius:7,weight:1,color:"#000",fillColor:color,fillOpacity:0.9});
-    cm._isCircle = true;
-    if (layer._popup) cm.bindPopup(layer._popup.getContent());
-    if (layer._tooltip) cm.bindTooltip(layer._tooltip._content);
-    allItems.removeLayer(layer); allItems.addLayer(cm); return cm;
+let sel=null;
+const STATUS_COLORS={"Planifié":"#1f77b4","En cours":"#2ca02c","En retard":"#d62728","Terminé":"#9467bd"};
+const FALLBACK=["#8c564b","#e377c2","#7f7f7f","#bcbd22","#17becf"];const extra={};
+function colorForStatut(s){if(STATUS_COLORS[s])return STATUS_COLORS[s]; if(!extra[s]) extra[s]=FALLBACK[(Object.keys(extra).length)%FALLBACK.length]; return extra[s];}
+function toFeature(layer){const gj=layer.toGeoJSON(); gj.properties=gj.properties||{}; return gj;}
+function money(n){try{return new Intl.NumberFormat('fr-FR',{maximumFractionDigits:0}).format(n);}catch(e){return String(n);}}
+function pct(x){return isFinite(x)?(Math.round(x*1000)/10)+'%':'0%';}
+function toNum(v){if(v==null||v==='')return 0;const t=(''+v).replace(/\s/g,'').replace(',','.');const n=Number(t);return isFinite(n)?n:0;}
+function popupHtml(p){const mt=toNum(p.montant),md=toNum(p.montant_decaisse),td=mt>0?md/mt:0;
+  return `<b>${p.nom||'Projet'}</b><br><i>Région:</i> ${p.region||''}<br><i>Statut:</i> ${p.statut||''}<br>
+  <i>Montant:</i> ${p.montant||''}<br><i>Décaissé:</i> ${p.montant_decaisse||''} (${pct(td)})<br>
+  <i>Resp.:</i> ${p.responsable||''}<br><i>Taux exéc.:</i> ${p.taux_execution? p.taux_execution+'%' : ''}`;}
+function bindUI(l,p){l.bindTooltip(p.nom||'Projet'); l.bindPopup(popupHtml(p),{maxWidth:420});}
+function applyStyle(l,props){
+  const color=colorForStatut(props.statut||'');
+  if(l instanceof L.Marker && !l._isCircle){
+    const cm=L.circleMarker(l.getLatLng(),{radius:7,weight:1,color:"#000",fillColor:color,fillOpacity:0.9});
+    cm._isCircle=true; if(l._popup) cm.bindPopup(l._popup.getContent()); if(l._tooltip) cm.bindTooltip(l._tooltip._content);
+    allItems.removeLayer(l); allItems.addLayer(cm); return cm;
   }
-  if (layer.setStyle) layer.setStyle({color,weight:2,fillOpacity:0.35});
-  return layer;
+  if(l.setStyle) l.setStyle({color,weight:2,fillOpacity:0.35});
+  return l;
 }
-function setProps(layer, props){
-  const f = toFeature(layer);
-  f.properties = Object.assign({}, f.properties||{}, props);
-  layer.feature = f;
-  bindUI(layer, f.properties);
-  return applyStyle(layer, f.properties);
-}
+function setProps(l,props){const f=toFeature(l); f.properties=Object.assign({},f.properties||{},props); l.feature=f; bindUI(l,f.properties); return applyStyle(l,f.properties);}
 
-// Légende
-function buildLegend(values){
-  const legend=document.getElementById("legend"), items=document.getElementById("legendItems");
-  items.innerHTML=""; if(!values.length){legend.style.display="none";return;}
-  values.forEach(v=>{const c=colorForStatut(v); const d=document.createElement("div"); d.className="item"; d.innerHTML=`<span class="swatch" style="background:${c}"></span><span>${v}</span>`; items.appendChild(d);});
-  legend.style.display="block";
-}
-
-// Filtres
-function refreshRegionFilter(){
-  const set=new Set(); allItems.eachLayer(l=>{const p=toFeature(l).properties||{}; if(p.region) set.add(String(p.region));});
-  const sel=document.getElementById('filtre-region'); const remembered=Array.from(sel.selectedOptions).map(o=>o.value);
-  sel.innerHTML=''; Array.from(set).sort().forEach(r=>{const o=document.createElement('option'); o.value=r; o.textContent=r; sel.appendChild(o); if(remembered.includes(r)) o.selected=true;});
-}
-function currentVisibleLayers(){const vis=[]; allItems.eachLayer(l=>{if(map.hasLayer(l)) vis.push(l);}); return vis;}
-function restoreVisibleLayers(state){allItems.eachLayer(l=>map.removeLayer(l)); state.forEach(l=>{if(!map.hasLayer(l)) l.addTo(map);});}
-
-function applyFilters(){
-  const sStatut=new Set(selectedOptions(document.getElementById('filtre-statut')).map(norm));
-  const sRegion=new Set(selectedOptions(document.getElementById('filtre-region')).map(norm));
-  const before=currentVisibleLayers(); const rows=[]; let total=0,totalDec=0,wExec=0; const byS={},byR={}; const statuses=new Set(); let visible=0;
-
+function refreshTableAndLegend(){
+  const tb=document.getElementById('tbl'); tb.innerHTML='';
+  let total=0,dec=0,wx=0; const statuses=new Set();
   allItems.eachLayer(l=>{
-    const f0=toFeature(l); applyStyle(l,f0.properties||{});
-    const p=f0.properties||{};
-    const okS=!sStatut.size||sStatut.has(norm(p.statut||'')); const okR=!sRegion.size||sRegion.has(norm(p.region||''));
-    if(okS&&okR){
-      visible++; if(!map.hasLayer(l)) l.addTo(map);
-      const m=toNum(p.montant), d=toNum(p.montant_decaisse), te=toNum(p.taux_execution);
-      rows.push(p); total+=m; totalDec+=d; wExec+=(isFinite(te)?te:0)*m;
-      const s=p.statut||'(sans)', r=p.region||'(sans)';
-      if(!byS[s]) byS[s]={m:0,d:0,wx:0}; if(!byR[r]) byR[r]={m:0,d:0,wx:0};
-      byS[s].m+=m; byS[s].d+=d; byS[s].wx+=(isFinite(te)?te:0)*m;
-      byR[r].m+=m; byR[r].d+=d; byR[r].wx+=(isFinite(te)?te:0)*m;
-      if(p.statut) statuses.add(String(p.statut));
-    } else { if(map.hasLayer(l)) map.removeLayer(l); }
-  });
-
-  if(visible===0 && before.length>0){ restoreVisibleLayers(before); const n=document.getElementById('notice'); n.style.display='block'; setTimeout(()=>{n.style.display='none';},3000); return; }
-
-  // Liste
-  const tbody=document.getElementById('tbl-body'); tbody.innerHTML='';
-  rows.forEach(p=>{const m=toNum(p.montant), d=toNum(p.montant_decaisse), t=m>0?d/m:0;
+    if(!map.hasLayer(l)) return;
+    const p=(l.feature&&l.feature.properties)||{};
+    const m=toNum(p.montant), d=toNum(p.montant_decaisse), t=m>0?d/m:0, te=toNum(p.taux_execution);
+    total+=m; dec+=d; wx+=(isFinite(te)?te:0)*m; if(p.statut) statuses.add(p.statut);
     const tr=document.createElement('tr');
-    tr.innerHTML=`<td>${p.nom||''}</td><td>${p.region||''}</td><td><span class="badge">${p.statut||''}</span></td>
+    tr.innerHTML=`<td>${p.nom||''}</td><td>${p.region||''}</td><td>${p.statut||''}</td>
                   <td>${p.montant||''}</td><td>${p.montant_decaisse||''}</td><td>${pct(t)}</td>
                   <td>${p.taux_execution? p.taux_execution+'%' : ''}</td><td>${p.responsable||''}</td>`;
-    tbody.appendChild(tr);
+    tb.appendChild(tr);
   });
-
-  // Synthèse
-  const tDec=total>0?totalDec/total:0, tExec=total>0?(wExec/total):0;
+  const td=total>0?dec/total:0, te=total>0?wx/total:0;
   document.getElementById('sum-total').textContent=money(total);
-  document.getElementById('sum-decaisse').textContent=money(totalDec);
-  document.getElementById('sum-taux-dec').textContent=pct(tDec);
-  document.getElementById('sum-taux-exec').textContent=(Math.round(tExec*10)/10)+'%';
-  document.getElementById('sum-by-statut').innerHTML=Object.entries(byS).sort()
-    .map(([k,v])=>`<div>${k} — <b>${money(v.m)}</b> | Déc.: <b>${money(v.d)}</b> | ${pct(v.m>0?v.d/v.m:0)} | Exéc.: <b>${(Math.round((v.m>0?v.wx/v.m:0)*10)/10)}%</b></div>`).join('');
-  document.getElementById('sum-by-region').innerHTML=Object.entries(byR).sort()
-    .map(([k,v])=>`<div>${k} — <b>${money(v.m)}</b> | Déc.: <b>${money(v.d)}</b> | ${pct(v.m>0?v.d/v.m:0)} | Exéc.: <b>${(Math.round((v.m>0?v.wx/v.m:0)*10)/10)}%</b></div>`).join('');
-
-  // Tableau synthèse
-  const tbodySynth=document.getElementById('tbl-synth'); tbodySynth.innerHTML='';
-  const rowG=document.createElement('tr');
-  rowG.innerHTML=`<td><b>Total (filtré)</b></td><td>${money(total)}</td><td>${money(totalDec)}</td><td>${pct(tDec)}</td><td>${(Math.round(tExec*10)/10)}%</td>`;
-  tbodySynth.appendChild(rowG);
-  for (const [k,v] of Object.entries(byS)){
-    const te = v.m>0 ? v.wx/v.m : 0;
-    const tr = document.createElement('tr');
-    tr.innerHTML = `<td>${k}</td><td>${money(v.m)}</td><td>${money(v.d)}</td><td>${pct(v.m>0?v.d/v.m:0)}</td><td>${(Math.round(te*10)/10)}%</td>`;
-    tbodySynth.appendChild(tr);
-  }
-
-  buildLegend(Array.from(statuses).sort());
-
-  // Fit
-  try{
-    let b=null; allItems.eachLayer(l=>{ if(map.hasLayer(l)){ b=b?b.extend(l.getBounds?l.getBounds():L.latLngBounds(l.getLatLng(),l.getLatLng())):(l.getBounds?l.getBounds():L.latLngBounds(l.getLatLng(),l.getLatLng())); } });
-    if(b&&b.isValid()) map.fitBounds(b.pad(0.2));
-  }catch(e){}
+  document.getElementById('sum-decaisse').textContent=money(dec);
+  document.getElementById('sum-taux-dec').textContent=pct(td);
+  document.getElementById('sum-taux-exec').textContent=(Math.round(te*10)/10)+'%';
+  buildLegend(Array.from(statuses).filter(Boolean).sort());
+}
+function buildLegend(values){
+  const cont=document.getElementById('legend'), items=document.getElementById('legendItems');
+  items.innerHTML=''; if(!values.length){cont.style.display='none';return;}
+  values.forEach(v=>{const c=colorForStatut(v); const div=document.createElement('div'); div.className='item'; div.innerHTML=`<span class="sw" style="background:${c}"></span><span>${v}</span>`; items.appendChild(div);});
+  cont.style.display='block';
 }
 
-// Import/Export
+// Formulaire
+document.getElementById('apply').onclick=()=>{
+  if(!sel){alert('Sélectionnez un objet.'); return;}
+  let l=sel;
+  const p={nom:nom.value.trim(),montant:montant.value.trim(),montant_decaisse:montant_decaisse.value.trim(),region:region.value.trim(),statut:statut.value,responsable:responsable.value.trim(),taux_execution:(()=>{const v=parseFloat(taux_execution.value.replace(',','.'));return isFinite(v)?String(v):'';})()};
+  l=setProps(l,p); sel=l; refreshTableAndLegend();
+};
+document.getElementById('clear').onclick=()=>{['nom','montant','montant_decaisse','region','responsable','taux_execution'].forEach(id=>document.getElementById(id).value=''); statut.value='Planifié';};
+
+// Sélection
+allItems.on('click',e=>{
+  sel=e.layer; const p=(sel.feature&&sel.feature.properties)||{};
+  nom.value=p.nom||''; montant.value=p.montant||''; montant_decaisse.value=p.montant_decaisse||'';
+  region.value=p.region||''; statut.value=p.statut||'Planifié'; responsable.value=p.responsable||''; taux_execution.value=p.taux_execution||'';
+});
+
+// Import / Export
 document.getElementById('export').onclick=()=>{
   const feats=[]; allItems.eachLayer(l=>feats.push(toFeature(l)));
   const blob=new Blob([JSON.stringify({type:'FeatureCollection',features:feats},null,2)],{type:'application/geo+json'});
@@ -292,94 +181,60 @@ document.getElementById('export').onclick=()=>{
 document.getElementById('import').onclick=()=>file.click();
 document.getElementById('file').onchange=async e=>{
   const f=e.target.files[0]; if(!f) return;
-  try{
-    const t=await f.text(); const j=JSON.parse(t);
-    allItems.clearLayers();
-    L.geoJSON(j,{
-      style:feat=>({color:colorForStatut((feat.properties||{}).statut||''),weight:2,fillOpacity:0.35}),
-      pointToLayer:(feat,latlng)=>{ const c=colorForStatut((feat.properties||{}).statut||''); const cm=L.circleMarker(latlng,{radius:7,weight:1,color:"#000",fillColor:c,fillOpacity:0.9}); cm._isCircle=true; return cm;},
-      onEachFeature:(feat,lay)=>{ allItems.addLayer(lay); lay.feature=feat; bindUI(lay, feat.properties||{}); }
-    });
-    refreshRegionFilter(); applyFilters(); autoSave(true);
-  }catch(e){ alert('Erreur import: '+e.message); }
+  try{ const t=await f.text(); const j=JSON.parse(t); renderGeoJSON(j); }catch(err){ alert('Import KO: '+err.message); }
 };
 
-// Formulaire
-document.getElementById('apply').onclick=()=>{
-  if(!sel){ alert('Sélectionnez un objet sur la carte.'); return; }
-  let l=sel;
-  const p={ nom:nom.value.trim(), montant:montant.value.trim(), montant_decaisse:montant_decaisse.value.trim(), region:region.value.trim(), statut:statut.value, responsable:responsable.value.trim(), taux_execution:(()=>{const v=toNum(taux_execution.value); return isFinite(v)?String(v):'';})() };
-  l=setProps(l,p); sel=l; refreshRegionFilter(); applyFilters(); autoSave(true);
-};
-document.getElementById('clear').onclick=()=>{['nom','montant','montant_decaisse','region','responsable','taux_execution'].forEach(id=>document.getElementById(id).value=''); statut.value='Planifié';};
-
-// Sélection
-allItems.on('click',e=>{
-  sel=e.layer; const p=toFeature(sel).properties||{};
-  nom.value=p.nom||''; montant.value=p.montant||''; montant_decaisse.value=p.montant_decaisse||'';
-  region.value=p.region||''; statut.value=p.statut||'Planifié'; responsable.value=p.responsable||''; taux_execution.value=p.taux_execution||'';
-});
-
-// Filtres
-document.getElementById('btn-apply-filters').onclick=applyFilters;
-document.getElementById('btn-reset-filters').onclick=()=>{document.getElementById('filtre-statut').selectedIndex=-1; document.getElementById('filtre-region').selectedIndex=-1; applyFilters();};
-document.getElementById('btn-show-all').onclick=()=>{document.getElementById('filtre-statut').selectedIndex=-1; document.getElementById('filtre-region').selectedIndex=-1; allItems.eachLayer(l=>{if(!map.hasLayer(l)) l.addTo(map);}); applyFilters();};
-
-// Sauvegarde locale
-const STORAGE_KEY='projets_geojson_app_complete_v1';
-function fcFromAllItems(){const features=[]; allItems.eachLayer(l=>features.push(toFeature(l))); return {type:'FeatureCollection',features};}
-function autoSave(silent=false){ try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(fcFromAllItems())); if(!silent) alert('Sauvegardé.'); } catch(e){ if(!silent) alert('Sauvegarde impossible: '+e.message); } }
-function loadLocal(){ const txt=localStorage.getItem(STORAGE_KEY); if(!txt){ alert('Aucune sauvegarde trouvée.'); return; } try{ const gj=JSON.parse(txt);
+// Rendu GeoJSON
+function renderGeoJSON(j){
   allItems.clearLayers();
-  L.geoJSON(gj,{ style:feat=>({color:colorForStatut((feat.properties||{}).statut||''),weight:2,fillOpacity:0.35}),
-    pointToLayer:(feat,latlng)=>{const c=colorForStatut((feat.properties||{}).statut||''); const cm=L.circleMarker(latlng,{radius:7,weight:1,color:"#000",fillColor:c,fillOpacity:0.9}); cm._isCircle=true; return cm;},
-    onEachFeature:(feat,lay)=>{allItems.addLayer(lay); lay.feature=feat; bindUI(lay, feat.properties||{});}});
-  refreshRegionFilter(); applyFilters(); } catch(e){ alert('Erreur rechargement: '+e.message); } }
-document.getElementById('btn-save').onclick=()=>autoSave(false);
-document.getElementById('btn-load').onclick=()=>loadLocal();
-
-// HTML autonome (un seul fichier pour partager)
-document.getElementById('download-standalone').addEventListener('click', function () {
-  try {
-    const feats=[]; allItems.eachLayer(l=>feats.push(l.toGeoJSON())); const fc={type:"FeatureCollection",features:feats};
-    const html='<!DOCTYPE html><html lang="fr"><head>'+
-      '<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'+
-      '<title>Carte Projets — Autonome</title>'+
-      '<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">'+
-      '<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></'+'script>'+
-      '<style>html,body{height:100%;margin:0}#map{position:absolute;inset:0}</style>'+
-      '</head><body><div id="map"></div>'+
-      '<script>'+
-      'const DATA='+JSON.stringify(fc)+';'+
-      'const COLORS={"Planifié":"#1f77b4","En cours":"#2ca02c","En retard":"#d62728","Terminé":"#9467bd"};'+
-      'function col(s){return COLORS[s]||"#2ca02c";}'+
-      'const map=L.map("map").setView([14.7,-17.4],8);'+
-      'L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{attribution:"© OSM"}).addTo(map);'+
-      'const layer=L.geoJSON(DATA,{'+
-      'style:f=>({color:col((f.properties||{}).statut||""),weight:2,fillOpacity:0.35}),'+
-      'pointToLayer:(f,latlng)=>L.circleMarker(latlng,{radius:7,weight:1,color:"#000",fillColor:col((f.properties||{}).statut||""),fillOpacity:0.9})'+
-      '}).addTo(map);'+
-      'try{map.fitBounds(layer.getBounds().pad(0.2));}catch(e){}'+
-      '</'+'script></body></html>';
-    const blob=new Blob([html],{type:'text/html'}); const url=URL.createObjectURL(blob);
-    const a=document.createElement('a'); a.href=url; a.download='index.html'; document.body.appendChild(a); a.click();
-    setTimeout(()=>{ document.body.removeChild(a); URL.revokeObjectURL(url); },500);
-  } catch (err){ alert("Erreur : "+err.message); }
-});
-
-// Démarrage : recharge local si dispo, sinon exemple
-if (localStorage.getItem(STORAGE_KEY)) {
-  loadLocal();
-} else {
-  let seed=L.circleMarker([14.67,-17.07],{radius:7,weight:1,color:"#000",fillColor:colorForStatut("En cours"),fillOpacity:0.9}).addTo(allItems);
-  setProps(seed,{nom:'Exemple — Forage de Ndiass',montant:'125000000',montant_decaisse:'80000000',region:'Thiès',statut:'En cours',responsable:'A. Diop',taux_execution:'65'});
-  refreshRegionFilter(); applyFilters();
+  const g = L.geoJSON(j,{
+    style: f => ({ color: colorForStatut((f.properties||{}).statut||''), weight:2, fillOpacity:0.35 }),
+    pointToLayer: (f, latlng) => {
+      const c = colorForStatut((f.properties||{}).statut||'');
+      const cm = L.circleMarker(latlng,{radius:7,weight:1,color:"#000",fillColor:c,fillOpacity:0.9});
+      cm._isCircle = true; return cm;
+    },
+    onEachFeature: (feat, lay) => { allItems.addLayer(lay); lay.feature = feat; bindUI(lay, feat.properties || {}); }
+  });
+  try{ const b=g.getBounds(); if(b && b.isValid()) map.fitBounds(b.pad(0.2)); }catch(e){}
+  refreshTableAndLegend();
 }
 
-// Événements de dessin
-map.on(L.Draw.Event.CREATED,e=>{let l=e.layer; allItems.addLayer(l); sel=l; l=setProps(l,{}); refreshRegionFilter(); applyFilters(); autoSave(true);});
-map.on(L.Draw.Event.EDITED,()=>{applyFilters(); autoSave(true);});
-map.on(L.Draw.Event.DELETED,()=>{sel=null; refreshRegionFilter(); applyFilters();});
+// Dessin
+map.on(L.Draw.Event.CREATED,e=>{let l=e.layer; allItems.addLayer(l); sel=l; l=setProps(l,{}); refreshTableAndLegend();});
+map.on(L.Draw.Event.EDITED,()=>{refreshTableAndLegend();});
+map.on(L.Draw.Event.DELETED,()=>{sel=null; refreshTableAndLegend();});
+
+// ======= Google Sheets: charger / publier =======
+async function loadFromSheets(){
+  try{
+    const r = await fetch(SHEETS_URL, { cache:'no-store' });
+    if(!r.ok){ alert("Impossible de charger depuis Sheets (vérifiez l'URL Apps Script)."); return; }
+    const j = await r.json();
+    renderGeoJSON(j);
+    alert("Données chargées depuis Google Sheets ✅");
+  }catch(e){ alert("Erreur Sheets (GET): "+e.message); }
+}
+async function saveToSheets(){
+  try{
+    const feats=[]; allItems.eachLayer(l=>feats.push(toFeature(l)));
+    const body = { type:'FeatureCollection', features:feats };
+    const r = await fetch(SHEETS_URL, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+    if(!r.ok){ const t=await r.text(); throw new Error(t||"POST non OK"); }
+    alert("Données publiées vers Google Sheets ✅");
+  }catch(e){ alert("Erreur Sheets (POST): "+e.message); }
+}
+document.getElementById('load-sheets').onclick=loadFromSheets;
+document.getElementById('save-sheets').onclick=saveToSheets;
+
+// Exemple si la feuille est vide
+setTimeout(()=>{
+  if(allItems.getLayers().length===0){
+    let seed=L.circleMarker([14.67,-17.07],{radius:7,weight:1,color:"#000",fillColor:"#2ca02c",fillOpacity:0.9}).addTo(allItems);
+    setProps(seed,{nom:'Exemple — Forage de Ndiass',montant:'125000000',montant_decaisse:'80000000',region:'Thiès',statut:'En cours',responsable:'A. Diop',taux_execution:'65'});
+    refreshTableAndLegend();
+  }
+},500);
 </script>
 </body>
 </html>
