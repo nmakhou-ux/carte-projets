@@ -3,17 +3,17 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Carte Projets — Version stable (données intégrées)</title>
+<title>Carte Projets — Filtres + Synthèses</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css" />
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
 <style>
   html,body{height:100%;margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial}
-  #layout{display:grid;grid-template-columns:420px 1fr;height:100vh}
+  #layout{display:grid;grid-template-columns:460px 1fr;height:100vh}
   #side{padding:14px;overflow:auto;border-right:1px solid #ddd;background:#fafafa}
   #map{width:100%;height:100%}
-  .card{border:1px solid #ddd;border-radius:10px;padding:10px;margin-bottom:10px;background:#fff}
+  .card{border:1px solid #ddd;border-radius:10px;padding:12px;margin-bottom:12px;background:#fff}
   .row{display:flex;gap:8px;flex-wrap:wrap}.row>*{flex:1 1 45%}
   .btn{padding:8px 10px;border:1px solid #bbb;border-radius:8px;background:#f5f5f5;cursor:pointer}
   .btn.warn{background:#ffe9e9;border-color:#f3b0b0}
@@ -28,21 +28,34 @@
 <body>
 <div id="layout">
   <div id="side">
-    <h3>Gestion & Suivi de Projets — (stable)</h3>
+    <h3>Gestion & Suivi de Projets — filtres + synthèses</h3>
 
+    <!-- Filtres -->
     <div class="card">
-      <div class="row">
-        <button class="btn" id="load-embedded">Charger mes données intégrées</button>
-        <button class="btn" id="save-local">Sauvegarder (local)</button>
-        <button class="btn" id="load-local">Charger (local)</button>
+      <b>Filtres</b>
+      <div class="row" style="margin-top:6px">
+        <div>
+          <label>Statut</label>
+          <select id="filtre-statut" style="width:100%">
+            <option value="">Tous</option>
+          </select>
+        </div>
+        <div>
+          <label>Région</label>
+          <select id="filtre-region" style="width:100%">
+            <option value="">Toutes</option>
+          </select>
+        </div>
       </div>
-      <div style="margin-top:6px;font-size:12px;opacity:.9">
-        <b>Conseil :</b> commence par <i>“Charger mes données intégrées”</i> (chargé aussi par défaut).
+      <div class="row" style="margin-top:6px">
+        <button class="btn" id="btn-reset">Réinitialiser</button>
       </div>
     </div>
 
+    <!-- Formulaire d’édition -->
     <div class="card">
-      <div class="row"><div><label>Nom</label><input id="nom" style="width:100%"></div></div>
+      <b>Saisie / Edition</b>
+      <div class="row" style="margin-top:6px"><div><label>Nom</label><input id="nom" style="width:100%"></div></div>
       <div class="row">
         <div><label>Montant</label><input id="montant" style="width:100%"></div>
         <div><label>Décaissé</label><input id="montant_decaisse" style="width:100%"></div>
@@ -65,8 +78,9 @@
       </div>
     </div>
 
+    <!-- Synthèse globale + listes -->
     <div class="card">
-      <b>Synthèse</b>
+      <b>Synthèse (filtrée)</b>
       <div style="margin-top:6px;display:grid;grid-template-columns:1fr 1fr;gap:8px">
         <div>Total: <b id="sum-total">0</b></div>
         <div>Décaissé: <b id="sum-decaisse">0</b></div>
@@ -76,17 +90,36 @@
     </div>
 
     <div class="card">
-      <b>Liste (affichée)</b>
+      <b>Liste (filtrée)</b>
       <table>
         <thead><tr><th>Projet</th><th>Région</th><th>Statut</th><th>Montant</th><th>Décaissé</th><th>% Déc.</th><th>% Exéc.</th><th>Resp.</th></tr></thead>
         <tbody id="tbl"></tbody>
       </table>
     </div>
 
+    <!-- Tableaux de synthèse -->
+    <div class="card">
+      <b>Synthèse par Statut (filtrée)</b>
+      <table id="tblStatut">
+        <thead><tr><th>Statut</th><th>Nb</th><th>Montant</th><th>Décaissé</th><th>% Déc.</th><th>% Exéc. pondéré</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <b>Synthèse par Région (filtrée)</b>
+      <table id="tblRegion">
+        <thead><tr><th>Région</th><th>Nb</th><th>Montant</th><th>Décaissé</th><th>% Déc.</th><th>% Exéc. pondéré</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <!-- Import / Export -->
     <div class="card">
       <div class="row">
         <button class="btn" id="export">Exporter GeoJSON</button>
         <button class="btn" id="import">Importer GeoJSON</button>
+        <button class="btn" id="load-embedded">Recharger données intégrées</button>
       </div>
       <input type="file" id="file" style="display:none" accept=".geojson,.json" />
     </div>
@@ -100,7 +133,7 @@
 </div>
 
 <script>
-// ===== Données intégrées (tes points) =====
+// ===== Données intégrées =====
 const INITIAL_DATA = {"type":"FeatureCollection","features":[
   {"type":"Feature","properties":{"nom":"Exemple — Forage de Ndiass","montant":"125000000","montant_decaisse":"80000000","region":"Thiès","statut":"En cours","responsable":"A. Diop","taux_execution":"65"},"geometry":{"type":"Point","coordinates":[-17.07,14.67]}},
   {"type":"Feature","properties":{"nom":"Construction terminal port de dakar","montant":"45000000000","montant_decaisse":"","region":"Dakar","statut":"Planifié","responsable":"DIP","taux_execution":"0"},"geometry":{"type":"Point","coordinates":[-17.442169,14.681911]}},
@@ -144,27 +177,61 @@ function applyStyle(l,props){
 }
 function setProps(l,props){const f=toFeature(l); f.properties=Object.assign({},f.properties||{},props); l.feature=f; bindUI(l,f.properties); return applyStyle(l,f.properties);}
 
-function refreshTableAndLegend(){
+// Filtres
+const fStatut = document.getElementById('filtre-statut');
+const fRegion = document.getElementById('filtre-region');
+document.getElementById('btn-reset').onclick=()=>{ fStatut.value=""; fRegion.value=""; applyFilters(); };
+
+function uniqueSorted(arr){return Array.from(new Set(arr.filter(Boolean))).sort((a,b)=>(''+a).localeCompare(b,'fr'));}
+function buildFilterOptions(){
+  const stats=[], regs=[];
+  allItems.eachLayer(l=>{
+    const p=(l.feature&&l.feature.properties)||{};
+    stats.push(p.statut); regs.push(p.region);
+  });
+  const s=uniqueSorted(stats), r=uniqueSorted(regs);
+  fStatut.innerHTML='<option value="">Tous</option>'+s.map(x=>`<option>${x}</option>`).join('');
+  fRegion.innerHTML='<option value="">Toutes</option>'+r.map(x=>`<option>${x}</option>`).join('');
+}
+fStatut.onchange = fRegion.onchange = ()=>applyFilters();
+
+function matchFilter(p){
+  const s = fStatut.value, r = fRegion.value;
+  if (s && (p.statut||'') !== s) return false;
+  if (r && (p.region||'') !== r) return false;
+  return true;
+}
+
+// Table + légende + synthèses (globales + groupées) — sur le sous-ensemble filtré
+function refreshAllSummaries(){
   const tb=document.getElementById('tbl'); tb.innerHTML='';
   let total=0,dec=0,wx=0; const statuses=new Set();
+
+  const rows=[]; // pour groupements
   allItems.eachLayer(l=>{
-    if(!map.hasLayer(l)) return;
+    if(!map.hasLayer(l)) return; // seulement visibles (donc filtrés)
     const p=(l.feature&&l.feature.properties)||{};
     const m=toNum(p.montant), d=toNum(p.montant_decaisse), t=m>0?d/m:0, te=toNum(p.taux_execution);
     total+=m; dec+=d; wx+=(isFinite(te)?te:0)*m; if(p.statut) statuses.add(p.statut);
+    rows.push({statut:p.statut||'', region:p.region||'', montant:m, decaisse:d, tauxExec:isFinite(te)?te:0});
     const tr=document.createElement('tr');
     tr.innerHTML=`<td>${p.nom||''}</td><td>${p.region||''}</td><td>${p.statut||''}</td>
                   <td>${p.montant||''}</td><td>${p.montant_decaisse||''}</td><td>${pct(t)}</td>
                   <td>${p.taux_execution? p.taux_execution+'%' : ''}</td><td>${p.responsable||''}</td>`;
     tb.appendChild(tr);
   });
+
   const td=total>0?dec/total:0, te=total>0?wx/total:0;
   document.getElementById('sum-total').textContent=money(total);
   document.getElementById('sum-decaisse').textContent=money(dec);
   document.getElementById('sum-taux-dec').textContent=pct(td);
   document.getElementById('sum-taux-exec').textContent=(Math.round(te*10)/10)+'%';
+
   buildLegend(Array.from(statuses).filter(Boolean).sort());
+  buildGroupedTable(rows, 'statut', 'tblStatut');
+  buildGroupedTable(rows, 'region', 'tblRegion');
 }
+
 function buildLegend(values){
   const cont=document.getElementById('legend'), items=document.getElementById('legendItems');
   items.innerHTML=''; if(!values.length){cont.style.display='none';return;}
@@ -172,34 +239,36 @@ function buildLegend(values){
   cont.style.display='block';
 }
 
-// Formulaire
-document.getElementById('apply').onclick=()=>{
-  if(!sel){alert('Sélectionnez un objet.'); return;}
-  let l=sel;
-  const p={nom:nom.value.trim(),montant:montant.value.trim(),montant_decaisse:montant_decaisse.value.trim(),region:region.value.trim(),statut:statut.value,responsable:responsable.value.trim(),taux_execution:(()=>{const v=parseFloat(taux_execution.value.replace(',','.'));return isFinite(v)?String(v):'';})()};
-  l=setProps(l,p); sel=l; refreshTableAndLegend();
-};
-document.getElementById('clear').onclick=()=>{['nom','montant','montant_decaisse','region','responsable','taux_execution'].forEach(id=>document.getElementById(id).value=''); statut.value='Planifié';};
+function buildGroupedTable(rows, key, tableId){
+  const by = {};
+  rows.forEach(r=>{
+    const k = r[key] || '(vide)';
+    if(!by[k]) by[k]={nb:0, m:0, d:0, wx:0}; // wx = somme (taux_exec * montant)
+    by[k].nb += 1;
+    by[k].m  += r.montant;
+    by[k].d  += r.decaisse;
+    by[k].wx += r.tauxExec * r.montant;
+  });
+  const tbody = document.querySelector('#'+tableId+' tbody');
+  tbody.innerHTML = '';
+  Object.keys(by).sort((a,b)=>(''+a).localeCompare(b,'fr')).forEach(k=>{
+    const o=by[k], td = o.m>0 ? o.d/o.m : 0, te = o.m>0 ? o.wx/o.m : 0;
+    const tr=document.createElement('tr');
+    tr.innerHTML = `<td>${k}</td><td>${o.nb}</td><td>${money(o.m)}</td><td>${money(o.d)}</td><td>${pct(td)}</td><td>${(Math.round(te*10)/10)}%</td>`;
+    tbody.appendChild(tr);
+  });
+}
 
-// Sélection
-allItems.on('click',e=>{
-  sel=e.layer; const p=(sel.feature&&sel.feature.properties)||{};
-  nom.value=p.nom||''; montant.value=p.montant||''; montant_decaisse.value=p.montant_decaisse||'';
-  region.value=p.region||''; statut.value=p.statut||'Planifié'; responsable.value=p.responsable||''; taux_execution.value=p.taux_execution||'';
-});
-
-// Import / Export
-document.getElementById('export').onclick=()=>{
-  const feats=[]; allItems.eachLayer(l=>feats.push(toFeature(l)));
-  const blob=new Blob([JSON.stringify({type:'FeatureCollection',features:feats},null,2)],{type:'application/geo+json'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='projets.geojson'; a.click();
-  setTimeout(()=>URL.revokeObjectURL(a.href),300);
-};
-document.getElementById('import').onclick=()=>file.click();
-document.getElementById('file').onchange=async e=>{
-  const f=e.target.files[0]; if(!f) return;
-  try{ const t=await f.text(); const j=JSON.parse(t); renderGeoJSON(j); }catch(err){ alert('Import KO: '+err.message); }
-};
+// Application des filtres (affichage/hide)
+function applyFilters(){
+  allItems.eachLayer(l=>{
+    const p=(l.feature&&l.feature.properties)||{};
+    const ok = matchFilter(p);
+    if(ok){ if(!map.hasLayer(l)) map.addLayer(l); }
+    else  { if(map.hasLayer(l)) map.removeLayer(l); }
+  });
+  refreshAllSummaries();
+}
 
 // Rendu GeoJSON
 function renderGeoJSON(j){
@@ -214,30 +283,54 @@ function renderGeoJSON(j){
     onEachFeature: (feat, lay) => { allItems.addLayer(lay); lay.feature = feat; bindUI(lay, feat.properties || {}); }
   });
   try{ const b=g.getBounds(); if(b && b.isValid()) map.fitBounds(b.pad(0.2)); }catch(e){}
-  refreshTableAndLegend();
+  buildFilterOptions();         // options depuis les données
+  applyFilters();               // applique les filtres (et met à jour tables)
 }
 
 // Dessin
-map.on(L.Draw.Event.CREATED,e=>{let l=e.layer; allItems.addLayer(l); sel=l; l=setProps(l,{}); refreshTableAndLegend();});
-map.on(L.Draw.Event.EDITED,()=>{refreshTableAndLegend();});
-map.on(L.Draw.Event.DELETED,()=>{sel=null; refreshTableAndLegend();});
+map.on(L.Draw.Event.CREATED,e=>{let l=e.layer; allItems.addLayer(l); sel=l; l=setProps(l,{}); buildFilterOptions(); applyFilters();});
+map.on(L.Draw.Event.EDITED,()=>{applyFilters();});
+map.on(L.Draw.Event.DELETED,()=>{sel=null; buildFilterOptions(); applyFilters();});
 
-// Sauvegarde locale
-const STORAGE_KEY='projets_geojson_static_v1';
-document.getElementById('save-local').onclick=()=>{
-  const feats=[]; allItems.eachLayer(l=>feats.push(toFeature(l)));
-  const fc={type:'FeatureCollection',features:feats};
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(fc));
-  alert('Données sauvegardées en local ✔');
+// Formulaire
+document.getElementById('apply').onclick=()=>{
+  if(!sel){alert('Sélectionnez un objet.'); return;}
+  let l=sel;
+  const p={nom:nom.value.trim(),montant:montant.value.trim(),montant_decaisse:montant_decaisse.value.trim(),region:region.value.trim(),statut:statut.value,responsable:responsable.value.trim(),taux_execution:(()=>{const v=parseFloat(taux_execution.value.replace(',','.'));return isFinite(v)?String(v):'';})()};
+  l=setProps(l,p); sel=l; buildFilterOptions(); applyFilters();
 };
-document.getElementById('load-local').onclick=()=>{
-  const t=localStorage.getItem(STORAGE_KEY);
-  if(!t){ alert('Aucune sauvegarde locale trouvée'); return; }
-  try{ renderGeoJSON(JSON.parse(t)); }catch(e){ alert('Lecture locale KO: '+e.message); }
+document.getElementById('clear').onclick=()=>{['nom','montant','montant_decaisse','region','responsable','taux_execution'].forEach(id=>document.getElementById(id).value=''); statut.value='Planifié';};
+
+// Import / Export
+document.getElementById('export').onclick=()=>{
+  const feats=[]; allItems.eachLayer(l=>feats.push(toFeature(l)));
+  const blob=new Blob([JSON.stringify({type:'FeatureCollection',features:feats},null,2)],{type:'application/geo+json'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='projets.geojson'; a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),300);
+};
+document.getElementById('import').onclick=()=>file.click();
+document.getElementById('file').onchange=async e=>{
+  const f=e.target.files[0]; if(!f) return;
+  try{ const t=await f.text(); const j=JSON.parse(t); renderGeoJSON(j); }catch(err){ alert('Import KO: '+err.message); }
 };
 document.getElementById('load-embedded').onclick=()=>renderGeoJSON(INITIAL_DATA);
 
-// Affiche immédiatement
+// Sélection d’un objet pour éditer
+allItems.on('click',e=>{
+  sel=e.layer; const p=(sel.feature&&sel.feature.properties)||{};
+  nom.value=p.nom||''; montant.value=p.montant||''; montant_decaisse.value=p.montant_decaisse||'';
+  region.value=p.region||''; statut.value=p.statut||'Planifié'; responsable.value=p.responsable||''; taux_execution.value=p.taux_execution||'';
+});
+
+// Légende
+function buildLegend(values){
+  const cont=document.getElementById('legend'), items=document.getElementById('legendItems');
+  items.innerHTML=''; if(!values.length){cont.style.display='none';return;}
+  values.forEach(v=>{const c=colorForStatut(v); const div=document.createElement('div'); div.className='item'; div.innerHTML=`<span class="sw" style="background:${c}"></span><span>${v}</span>`; items.appendChild(div);});
+  cont.style.display='block';
+}
+
+// Démarrage : affiche immédiatement
 renderGeoJSON(INITIAL_DATA);
 </script>
 </body>
