@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Carte Projets — Stockage partagé Google Sheets</title>
+<title>Carte Projets — GitHub Sync (nmakhou-ux/carte-projets)</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css" />
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -14,32 +14,38 @@
   #side{padding:14px;overflow:auto;border-right:1px solid #ddd}
   #map{width:100%;height:100%}
   .card{border:1px solid #ddd;border-radius:10px;padding:10px;margin-bottom:10px}
-  .row{display:flex;gap:8px}.row>*{flex:1}
+  .row{display:flex;gap:8px;flex-wrap:wrap}.row>*{flex:1 1 45%}
   .btn{padding:8px 10px;border:1px solid #bbb;border-radius:8px;background:#f5f5f5;cursor:pointer}
+  .btn.warn{background:#ffe9e9;border-color:#f3b0b0}
   table{width:100%;border-collapse:collapse;font-size:13px}
   th,td{border-bottom:1px solid #eee;padding:6px 4px;text-align:left}
   .legend{position:absolute;bottom:20px;left:20px;z-index:1000;background:#fff;border:1px solid #333;border-radius:8px;padding:8px 10px}
   .legend .item{display:flex;align-items:center;gap:6px;margin-bottom:4px}
   .legend .sw{width:12px;height:12px;border:1px solid #333}
+  small.mono{font-family:ui-monospace,Menlo,Consolas,monospace}
 </style>
 </head>
 <body>
 <div id="layout">
   <div id="side">
-    <h3>Gestion & Suivi de Projets (Sheets)</h3>
+    <h3>Gestion & Suivi de Projets — GitHub Sync</h3>
 
     <div class="card">
       <div class="row">
-        <button class="btn" id="load-sheets">Charger (Sheets)</button>
-        <button class="btn" id="save-sheets">Publier (Sheets)</button>
+        <button class="btn" id="load-github">Charger (GitHub)</button>
+        <button class="btn" id="save-github">Publier (GitHub)</button>
       </div>
       <div class="row" style="margin-top:6px">
-        <button class="btn" id="export">Exporter GeoJSON</button>
-        <button class="btn" id="import">Importer GeoJSON</button>
+        <button class="btn" id="set-token">Enregistrer le token</button>
+        <button class="btn warn" id="clear-token">Effacer le token</button>
       </div>
-      <input type="file" id="file" style="display:none" accept=".geojson,.json" />
-      <div style="margin-top:6px;font-size:12px;opacity:.8">
-        Remplacez la constante <code>SHEETS_URL</code> par l’URL de votre Apps Script (déployé en web app).
+      <div class="row" style="margin-top:6px">
+        <button class="btn" id="load-embedded">Charger mes données intégrées</button>
+        <button class="btn" id="publish-embedded">Publier données intégrées → GitHub</button>
+      </div>
+      <div style="margin-top:6px;font-size:12px;opacity:.9">
+        <small class="mono">nmakhou-ux/carte-projets/main/data/projets.geojson</small><br>
+        Le token (scope: <b>repo</b>) est stocké localement (localStorage).
       </div>
     </div>
 
@@ -84,6 +90,14 @@
         <tbody id="tbl"></tbody>
       </table>
     </div>
+
+    <div class="card">
+      <div class="row">
+        <button class="btn" id="export">Exporter GeoJSON</button>
+        <button class="btn" id="import">Importer GeoJSON</button>
+      </div>
+      <input type="file" id="file" style="display:none" accept=".geojson,.json" />
+    </div>
   </div>
 
   <div id="map">
@@ -94,9 +108,29 @@
 </div>
 
 <script>
-// === CONFIG: remplacez par l'URL de votre Apps Script déployé (doGet/doPost) ===
-const SHEETS_URL = "https://script.google.com/macros/s/REPLACE_WITH_YOURS/exec";
+// ====== CONFIG ======
+const GH_USER   = "nmakhou-ux";
+const GH_REPO   = "carte-projets";
+const GH_BRANCH = "main";
+const GH_PATH   = "data/projets.geojson";
 
+// Données intégrées (tes points actuels)
+const INITIAL_DATA = {"type":"FeatureCollection","features":[
+  {"type":"Feature","properties":{"nom":"Exemple — Forage de Ndiass","montant":"125000000","montant_decaisse":"80000000","region":"Thiès","statut":"En cours","responsable":"A. Diop","taux_execution":"65"},"geometry":{"type":"Point","coordinates":[-17.07,14.67]}},
+  {"type":"Feature","properties":{"nom":"Construction terminal port de dakar","montant":"45000000000","montant_decaisse":"","region":"Dakar","statut":"Planifié","responsable":"DIP","taux_execution":"0"},"geometry":{"type":"Point","coordinates":[-17.442169,14.681911]}},
+  {"type":"Feature","properties":{"nom":"Construction Hhôpital de Saint louis","montant":"46000000000","montant_decaisse":"12000000000","region":"Saint louis","statut":"En retard","responsable":"DIS","taux_execution":"15"},"geometry":{"type":"Point","coordinates":[-16.413574,16.193575]}},
+  {"type":"Feature","properties":{"nom":"Construction Hopital regional de Kédougou","montant":"25000000000","montant_decaisse":"25000000000","region":"Kédougou","statut":"Terminé","responsable":"DIS","taux_execution":"0"},"geometry":{"type":"Point","coordinates":[-12.403564,12.715368]}},
+  {"type":"Feature","properties":{"nom":"Construction pont de Ziguinchor","montant":"52000000000","montant_decaisse":"","region":"Ziguinchor","statut":"Planifié","responsable":"Ageroute","taux_execution":"0"},"geometry":{"type":"Point","coordinates":[-16.261139,12.537137]}},
+  {"type":"Feature","properties":{"nom":"Construction lycée de Matam","montant":"2500000000","montant_decaisse":"1200000000","region":"Matam","statut":"En cours","responsable":"DIE","taux_execution":"45"},"geometry":{"type":"Point","coordinates":[-13.820801,15.871525]}},
+  {"type":"Feature","properties":{"nom":"Construction du port sec de Tambacounda","montant":"54000000000","montant_decaisse":"","region":"Tambacounda","statut":"Planifié","responsable":"AGEROUTE","taux_execution":"0"},"geometry":{"type":"Point","coordinates":[-13.612061,13.624633]}},
+  {"type":"Feature","properties":{"nom":"Construction hôpital de Touba","montant":"46000000000","montant_decaisse":"25000000000","region":"Diourbel","statut":"En cours","responsable":"","taux_execution":"60"},"geometry":{"type":"Point","coordinates":[-15.954895,14.839939]}},
+  {"type":"Feature","properties":{"nom":"Construction centre de santé de Linguère","montant":"3000000000","montant_decaisse":"3000000000","region":"Louga","statut":"Terminé","responsable":"","taux_execution":"0"},"geometry":{"type":"Point","coordinates":[-15.249023,15.315976]}}
+]};
+
+const RAW_URL = `https://raw.githubusercontent.com/${GH_USER}/${GH_REPO}/${GH_BRANCH}/${GH_PATH}`;
+const API_URL = `https://api.github.com/repos/${GH_USER}/${GH_REPO}/contents/${GH_PATH}`;
+
+// ====== Carte ======
 const map = L.map('map').setView([14.7,-17.4], 8);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OSM'}).addTo(map);
 const allItems = new L.FeatureGroup().addTo(map);
@@ -107,6 +141,7 @@ const STATUS_COLORS={"Planifié":"#1f77b4","En cours":"#2ca02c","En retard":"#d6
 const FALLBACK=["#8c564b","#e377c2","#7f7f7f","#bcbd22","#17becf"];const extra={};
 function colorForStatut(s){if(STATUS_COLORS[s])return STATUS_COLORS[s]; if(!extra[s]) extra[s]=FALLBACK[(Object.keys(extra).length)%FALLBACK.length]; return extra[s];}
 function toFeature(layer){const gj=layer.toGeoJSON(); gj.properties=gj.properties||{}; return gj;}
+function b64(s){return btoa(unescape(encodeURIComponent(s)));}
 function money(n){try{return new Intl.NumberFormat('fr-FR',{maximumFractionDigits:0}).format(n);}catch(e){return String(n);}}
 function pct(x){return isFinite(x)?(Math.round(x*1000)/10)+'%':'0%';}
 function toNum(v){if(v==null||v==='')return 0;const t=(''+v).replace(/\s/g,'').replace(',','.');const n=Number(t);return isFinite(n)?n:0;}
@@ -205,36 +240,50 @@ map.on(L.Draw.Event.CREATED,e=>{let l=e.layer; allItems.addLayer(l); sel=l; l=se
 map.on(L.Draw.Event.EDITED,()=>{refreshTableAndLegend();});
 map.on(L.Draw.Event.DELETED,()=>{sel=null; refreshTableAndLegend();});
 
-// ======= Google Sheets: charger / publier =======
-async function loadFromSheets(){
-  try{
-    const r = await fetch(SHEETS_URL, { cache:'no-store' });
-    if(!r.ok){ alert("Impossible de charger depuis Sheets (vérifiez l'URL Apps Script)."); return; }
-    const j = await r.json();
-    renderGeoJSON(j);
-    alert("Données chargées depuis Google Sheets ✅");
-  }catch(e){ alert("Erreur Sheets (GET): "+e.message); }
+// ======= GitHub utils =======
+function getToken(){ let t = localStorage.getItem('gh_token');
+  if (!t) { t = prompt("Collez votre GitHub Personal Access Token (scope: repo) :"); if (!t) return null; localStorage.setItem('gh_token', t); }
+  return t;
 }
-async function saveToSheets(){
-  try{
-    const feats=[]; allItems.eachLayer(l=>feats.push(toFeature(l)));
-    const body = { type:'FeatureCollection', features:feats };
-    const r = await fetch(SHEETS_URL, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
-    if(!r.ok){ const t=await r.text(); throw new Error(t||"POST non OK"); }
-    alert("Données publiées vers Google Sheets ✅");
-  }catch(e){ alert("Erreur Sheets (POST): "+e.message); }
-}
-document.getElementById('load-sheets').onclick=loadFromSheets;
-document.getElementById('save-sheets').onclick=saveToSheets;
+document.getElementById('set-token').onclick=()=>{
+  const t = prompt("Collez votre GitHub Personal Access Token (scope: repo) :");
+  if(t){ localStorage.setItem('gh_token', t); alert("Token enregistré ✔"); }
+};
+document.getElementById('clear-token').onclick=()=>{ localStorage.removeItem('gh_token'); alert("Token effacé."); };
 
-// Exemple si la feuille est vide
-setTimeout(()=>{
-  if(allItems.getLayers().length===0){
-    let seed=L.circleMarker([14.67,-17.07],{radius:7,weight:1,color:"#000",fillColor:"#2ca02c",fillOpacity:0.9}).addTo(allItems);
-    setProps(seed,{nom:'Exemple — Forage de Ndiass',montant:'125000000',montant_decaisse:'80000000',region:'Thiès',statut:'En cours',responsable:'A. Diop',taux_execution:'65'});
-    refreshTableAndLegend();
-  }
-},500);
+// Charger depuis GitHub
+async function loadFromGitHub(){
+  const r = await fetch(RAW_URL, { cache:'no-store' });
+  if(!r.ok){ throw new Error("Fichier distant introuvable"); }
+  const j = await r.json();
+  renderGeoJSON(j);
+}
+
+// Publier vers GitHub (PUT /contents)
+async function saveToGitHub(fc){
+  const token = getToken(); if(!token) return;
+  let sha = null;
+  const head = await fetch(API_URL, { headers:{ Authorization:`Bearer ${token}`, Accept:'application/vnd.github+json' }});
+  if (head.ok) sha = (await head.json()).sha;
+  const res = await fetch(API_URL, {
+    method:'PUT',
+    headers:{ Authorization:`Bearer ${token}`, Accept:'application/vnd.github+json`, 'Content-Type':'application/json' },
+    body: JSON.stringify({ message:'update projets.geojson from app',
+                           content: btoa(unescape(encodeURIComponent(JSON.stringify(fc,null,2)))),
+                           sha, branch: GH_BRANCH })
+  });
+  if(!res.ok){ const t=await res.text(); throw new Error(t || 'API GitHub error'); }
+}
+
+// Actions
+document.getElementById('load-github').onclick=async ()=>{ try{ await loadFromGitHub(); alert("Chargé depuis GitHub ✅"); }catch(e){ alert("Chargement GitHub: "+e.message); } };
+document.getElementById('save-github').onclick=async ()=>{ try{ const feats=[]; allItems.eachLayer(l=>feats.push(toFeature(l))); const fc={type:'FeatureCollection',features:feats}; await saveToGitHub(fc); alert("Publié sur GitHub ✅"); }catch(e){ alert("Publication GitHub: "+e.message); } };
+
+document.getElementById('load-embedded').onclick=()=>{ renderGeoJSON(INITIAL_DATA); alert("Données intégrées chargées ✅"); };
+document.getElementById('publish-embedded').onclick=async ()=>{ try{ await saveToGitHub(INITIAL_DATA); renderGeoJSON(INITIAL_DATA); alert("Données intégrées publiées sur GitHub ✅"); }catch(e){ alert("Publication: "+e.message); } };
+
+// Démarrage : GitHub > données intégrées
+(async ()=>{ try{ await loadFromGitHub(); }catch(e){ renderGeoJSON(INITIAL_DATA); } })();
 </script>
 </body>
 </html>
