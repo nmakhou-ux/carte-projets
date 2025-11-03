@@ -3,14 +3,14 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Carte Projets — Filtres + Synthèses</title>
+<title>Carte Projets — Filtres + Synthèses (avec sauvegarde locale)</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css" />
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
 <style>
   html,body{height:100%;margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial}
-  #layout{display:grid;grid-template-columns:460px 1fr;height:100vh}
+  #layout{display:grid;grid-template-columns:480px 1fr;height:100vh}
   #side{padding:14px;overflow:auto;border-right:1px solid #ddd;background:#fafafa}
   #map{width:100%;height:100%}
   .card{border:1px solid #ddd;border-radius:10px;padding:12px;margin-bottom:12px;background:#fff}
@@ -78,7 +78,7 @@
       </div>
     </div>
 
-    <!-- Synthèse globale + listes -->
+    <!-- Synthèse globale + liste -->
     <div class="card">
       <b>Synthèse (filtrée)</b>
       <div style="margin-top:6px;display:grid;grid-template-columns:1fr 1fr;gap:8px">
@@ -122,6 +122,9 @@
         <button class="btn" id="load-embedded">Recharger données intégrées</button>
       </div>
       <input type="file" id="file" style="display:none" accept=".geojson,.json" />
+      <div style="margin-top:6px;font-size:12px;opacity:.85">
+        Les saisies sont <b>auto-sauvegardées</b> dans le navigateur et rechargées au démarrage.
+      </div>
     </div>
   </div>
 
@@ -177,7 +180,22 @@ function applyStyle(l,props){
 }
 function setProps(l,props){const f=toFeature(l); f.properties=Object.assign({},f.properties||{},props); l.feature=f; bindUI(l,f.properties); return applyStyle(l,f.properties);}
 
-// Filtres
+// ===== Sauvegarde locale =====
+const STORAGE_KEY = 'projets_geojson_v3';
+function collectFC(){
+  const feats=[]; allItems.eachLayer(l=>feats.push(toFeature(l)));
+  return {type:'FeatureCollection', features:feats};
+}
+function persistLocal(){
+  try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(collectFC())); }catch(e){}
+}
+function loadLocal(){
+  const t=localStorage.getItem(STORAGE_KEY);
+  if(!t) return null;
+  try{ return JSON.parse(t); }catch(e){ return null; }
+}
+
+// ===== Filtres =====
 const fStatut = document.getElementById('filtre-statut');
 const fRegion = document.getElementById('filtre-region');
 document.getElementById('btn-reset').onclick=()=>{ fStatut.value=""; fRegion.value=""; applyFilters(); };
@@ -202,14 +220,14 @@ function matchFilter(p){
   return true;
 }
 
-// Table + légende + synthèses (globales + groupées) — sur le sous-ensemble filtré
+// ===== Tableaux & synthèses (sur VISIBLE = filtré) =====
 function refreshAllSummaries(){
   const tb=document.getElementById('tbl'); tb.innerHTML='';
   let total=0,dec=0,wx=0; const statuses=new Set();
+  const rows=[];
 
-  const rows=[]; // pour groupements
   allItems.eachLayer(l=>{
-    if(!map.hasLayer(l)) return; // seulement visibles (donc filtrés)
+    if(!map.hasLayer(l)) return;
     const p=(l.feature&&l.feature.properties)||{};
     const m=toNum(p.montant), d=toNum(p.montant_decaisse), t=m>0?d/m:0, te=toNum(p.taux_execution);
     total+=m; dec+=d; wx+=(isFinite(te)?te:0)*m; if(p.statut) statuses.add(p.statut);
@@ -243,7 +261,7 @@ function buildGroupedTable(rows, key, tableId){
   const by = {};
   rows.forEach(r=>{
     const k = r[key] || '(vide)';
-    if(!by[k]) by[k]={nb:0, m:0, d:0, wx:0}; // wx = somme (taux_exec * montant)
+    if(!by[k]) by[k]={nb:0, m:0, d:0, wx:0};
     by[k].nb += 1;
     by[k].m  += r.montant;
     by[k].d  += r.decaisse;
@@ -259,7 +277,7 @@ function buildGroupedTable(rows, key, tableId){
   });
 }
 
-// Application des filtres (affichage/hide)
+// ===== Application des filtres =====
 function applyFilters(){
   allItems.eachLayer(l=>{
     const p=(l.feature&&l.feature.properties)||{};
@@ -268,9 +286,10 @@ function applyFilters(){
     else  { if(map.hasLayer(l)) map.removeLayer(l); }
   });
   refreshAllSummaries();
+  persistLocal(); // on garde la vue en mémoire aussi
 }
 
-// Rendu GeoJSON
+// ===== Rendu GeoJSON =====
 function renderGeoJSON(j){
   allItems.clearLayers();
   const g = L.geoJSON(j,{
@@ -283,28 +302,29 @@ function renderGeoJSON(j){
     onEachFeature: (feat, lay) => { allItems.addLayer(lay); lay.feature = feat; bindUI(lay, feat.properties || {}); }
   });
   try{ const b=g.getBounds(); if(b && b.isValid()) map.fitBounds(b.pad(0.2)); }catch(e){}
-  buildFilterOptions();         // options depuis les données
-  applyFilters();               // applique les filtres (et met à jour tables)
+  buildFilterOptions();
+  applyFilters();
+  persistLocal();
 }
 
-// Dessin
-map.on(L.Draw.Event.CREATED,e=>{let l=e.layer; allItems.addLayer(l); sel=l; l=setProps(l,{}); buildFilterOptions(); applyFilters();});
-map.on(L.Draw.Event.EDITED,()=>{applyFilters();});
-map.on(L.Draw.Event.DELETED,()=>{sel=null; buildFilterOptions(); applyFilters();});
+// ===== Dessin / Edition : AUTO-SAVE =====
+map.on(L.Draw.Event.CREATED,e=>{let l=e.layer; allItems.addLayer(l); sel=l; l=setProps(l,{}); buildFilterOptions(); applyFilters(); persistLocal();});
+map.on(L.Draw.Event.EDITED, ()=>{applyFilters(); persistLocal();});
+map.on(L.Draw.Event.DELETED, ()=>{sel=null; buildFilterOptions(); applyFilters(); persistLocal();});
 
-// Formulaire
+// ===== Formulaire : AUTO-SAVE =====
 document.getElementById('apply').onclick=()=>{
   if(!sel){alert('Sélectionnez un objet.'); return;}
   let l=sel;
   const p={nom:nom.value.trim(),montant:montant.value.trim(),montant_decaisse:montant_decaisse.value.trim(),region:region.value.trim(),statut:statut.value,responsable:responsable.value.trim(),taux_execution:(()=>{const v=parseFloat(taux_execution.value.replace(',','.'));return isFinite(v)?String(v):'';})()};
-  l=setProps(l,p); sel=l; buildFilterOptions(); applyFilters();
+  l=setProps(l,p); sel=l; buildFilterOptions(); applyFilters(); persistLocal();
 };
 document.getElementById('clear').onclick=()=>{['nom','montant','montant_decaisse','region','responsable','taux_execution'].forEach(id=>document.getElementById(id).value=''); statut.value='Planifié';};
 
-// Import / Export
+// ===== Import / Export =====
 document.getElementById('export').onclick=()=>{
-  const feats=[]; allItems.eachLayer(l=>feats.push(toFeature(l)));
-  const blob=new Blob([JSON.stringify({type:'FeatureCollection',features:feats},null,2)],{type:'application/geo+json'});
+  const fc=collectFC();
+  const blob=new Blob([JSON.stringify(fc,null,2)],{type:'application/geo+json'});
   const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='projets.geojson'; a.click();
   setTimeout(()=>URL.revokeObjectURL(a.href),300);
 };
@@ -315,14 +335,14 @@ document.getElementById('file').onchange=async e=>{
 };
 document.getElementById('load-embedded').onclick=()=>renderGeoJSON(INITIAL_DATA);
 
-// Sélection d’un objet pour éditer
+// ===== Sélection d’un objet =====
 allItems.on('click',e=>{
   sel=e.layer; const p=(sel.feature&&sel.feature.properties)||{};
   nom.value=p.nom||''; montant.value=p.montant||''; montant_decaisse.value=p.montant_decaisse||'';
   region.value=p.region||''; statut.value=p.statut||'Planifié'; responsable.value=p.responsable||''; taux_execution.value=p.taux_execution||'';
 });
 
-// Légende
+// ===== Légende =====
 function buildLegend(values){
   const cont=document.getElementById('legend'), items=document.getElementById('legendItems');
   items.innerHTML=''; if(!values.length){cont.style.display='none';return;}
@@ -330,8 +350,12 @@ function buildLegend(values){
   cont.style.display='block';
 }
 
-// Démarrage : affiche immédiatement
-renderGeoJSON(INITIAL_DATA);
+// ===== Démarrage : on charge d’abord la sauvegarde locale s’il y en a une =====
+(function start(){
+  const saved = loadLocal();
+  if (saved) renderGeoJSON(saved);
+  else       renderGeoJSON(INITIAL_DATA);
+})();
 </script>
 </body>
 </html>
