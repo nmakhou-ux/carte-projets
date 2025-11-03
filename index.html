@@ -267,7 +267,7 @@ async function saveToGitHub(fc){
   if (head.ok) sha = (await head.json()).sha;
   const res = await fetch(API_URL, {
     method:'PUT',
-    headers:{ Authorization:`Bearer ${token}`, Accept:'application/vnd.github+json`, 'Content-Type':'application/json' },
+    headers:{ Authorization:`Bearer ${token}`, Accept:'application/vnd.github+json', 'Content-Type':'application/json' },
     body: JSON.stringify({ message:'update projets.geojson from app',
                            content: btoa(unescape(encodeURIComponent(JSON.stringify(fc,null,2)))),
                            sha, branch: GH_BRANCH })
