@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Carte Projets — Filtres + Synthèses (avec sauvegarde locale)</title>
+<title>Carte Projets — filtres + synthèses + synchro GitHub</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css" />
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -22,13 +22,12 @@
   .legend{position:absolute;bottom:20px;left:20px;z-index:1000;background:#fff;border:1px solid #333;border-radius:8px;padding:8px 10px}
   .legend .item{display:flex;align-items:center;gap:6px;margin-bottom:4px}
   .legend .sw{width:12px;height:12px;border:1px solid #333}
-  small.mono{font-family:ui-monospace,Menlo,Consolas,monospace}
 </style>
 </head>
 <body>
 <div id="layout">
   <div id="side">
-    <h3>Gestion & Suivi de Projets — filtres + synthèses</h3>
+    <h3>Gestion & Suivi de Projets</h3>
 
     <!-- Filtres -->
     <div class="card">
@@ -36,15 +35,11 @@
       <div class="row" style="margin-top:6px">
         <div>
           <label>Statut</label>
-          <select id="filtre-statut" style="width:100%">
-            <option value="">Tous</option>
-          </select>
+          <select id="filtre-statut" style="width:100%"><option value="">Tous</option></select>
         </div>
         <div>
           <label>Région</label>
-          <select id="filtre-region" style="width:100%">
-            <option value="">Toutes</option>
-          </select>
+          <select id="filtre-region" style="width:100%"><option value="">Toutes</option></select>
         </div>
       </div>
       <div class="row" style="margin-top:6px">
@@ -52,7 +47,7 @@
       </div>
     </div>
 
-    <!-- Formulaire d’édition -->
+    <!-- Saisie / Edition -->
     <div class="card">
       <b>Saisie / Edition</b>
       <div class="row" style="margin-top:6px"><div><label>Nom</label><input id="nom" style="width:100%"></div></div>
@@ -78,7 +73,7 @@
       </div>
     </div>
 
-    <!-- Synthèse globale + liste -->
+    <!-- Synthèse -->
     <div class="card">
       <b>Synthèse (filtrée)</b>
       <div style="margin-top:6px;display:grid;grid-template-columns:1fr 1fr;gap:8px">
@@ -97,7 +92,6 @@
       </table>
     </div>
 
-    <!-- Tableaux de synthèse -->
     <div class="card">
       <b>Synthèse par Statut (filtrée)</b>
       <table id="tblStatut">
@@ -114,17 +108,29 @@
       </table>
     </div>
 
-    <!-- Import / Export -->
+    <!-- Import / Export / Local / GitHub -->
     <div class="card">
       <div class="row">
         <button class="btn" id="export">Exporter GeoJSON</button>
         <button class="btn" id="import">Importer GeoJSON</button>
         <button class="btn" id="load-embedded">Recharger données intégrées</button>
       </div>
-      <input type="file" id="file" style="display:none" accept=".geojson,.json" />
-      <div style="margin-top:6px;font-size:12px;opacity:.85">
-        Les saisies sont <b>auto-sauvegardées</b> dans le navigateur et rechargées au démarrage.
+      <div class="row" style="margin-top:6px">
+        <button class="btn" id="btn-save-local">Sauvegarder (local)</button>
+        <button class="btn" id="btn-load-local">Charger (local)</button>
       </div>
+      <div class="row" style="margin-top:6px">
+        <button class="btn" id="gh-load">Charger (GitHub)</button>
+        <button class="btn" id="gh-save">Publier (GitHub)</button>
+      </div>
+      <div class="row" style="margin-top:6px">
+        <button class="btn" id="gh-token">Enregistrer Token</button>
+        <button class="btn warn" id="gh-token-clear">Effacer Token</button>
+      </div>
+      <div style="margin-top:6px;font-size:12px;opacity:.85">
+        Fichier distant : <b>nmakhou-ux/carte-projets@main → data/projets.geojson</b>
+      </div>
+      <input type="file" id="file" style="display:none" accept=".geojson,.json" />
     </div>
   </div>
 
@@ -180,20 +186,27 @@ function applyStyle(l,props){
 }
 function setProps(l,props){const f=toFeature(l); f.properties=Object.assign({},f.properties||{},props); l.feature=f; bindUI(l,f.properties); return applyStyle(l,f.properties);}
 
-// ===== Sauvegarde locale =====
-const STORAGE_KEY = 'projets_geojson_v3';
+// ===== Sauvegarde locale (manuelle, avec migration) =====
+const STORAGE_KEYS = ['projets_geojson_v3','projets_geojson_v2','projets_geojson_static_v1'];
+let allowAutoSave = false; // rien n'est écrit tant que tu n'as pas cliqué Sauvegarder/Charger
+
 function collectFC(){
   const feats=[]; allItems.eachLayer(l=>feats.push(toFeature(l)));
   return {type:'FeatureCollection', features:feats};
 }
-function persistLocal(){
-  try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(collectFC())); }catch(e){}
+function saveLocal(){
+  try{ localStorage.setItem(STORAGE_KEYS[0], JSON.stringify(collectFC())); alert('Données sauvegardées en local ✔'); allowAutoSave=true; }
+  catch(e){ alert('Sauvegarde locale: '+e.message); }
 }
-function loadLocal(){
-  const t=localStorage.getItem(STORAGE_KEY);
-  if(!t) return null;
-  try{ return JSON.parse(t); }catch(e){ return null; }
+function loadLocalAny(){
+  for(const k of STORAGE_KEYS){
+    const t=localStorage.getItem(k); if(!t) continue;
+    try{ const j=JSON.parse(t); if(k!==STORAGE_KEYS[0]) localStorage.setItem(STORAGE_KEYS[0], JSON.stringify(j)); return j; }
+    catch(e){}
+  }
+  return null;
 }
+function autoSaveIfAllowed(){ if(allowAutoSave) saveLocal(); }
 
 // ===== Filtres =====
 const fStatut = document.getElementById('filtre-statut');
@@ -214,9 +227,9 @@ function buildFilterOptions(){
 fStatut.onchange = fRegion.onchange = ()=>applyFilters();
 
 function matchFilter(p){
-  const s = fStatut.value, r = fRegion.value;
-  if (s && (p.statut||'') !== s) return false;
-  if (r && (p.region||'') !== r) return false;
+  const s=fStatut.value, r=fRegion.value;
+  if (s && (p.statut||'')!==s) return false;
+  if (r && (p.region||'')!==r) return false;
   return true;
 }
 
@@ -225,7 +238,6 @@ function refreshAllSummaries(){
   const tb=document.getElementById('tbl'); tb.innerHTML='';
   let total=0,dec=0,wx=0; const statuses=new Set();
   const rows=[];
-
   allItems.eachLayer(l=>{
     if(!map.hasLayer(l)) return;
     const p=(l.feature&&l.feature.properties)||{};
@@ -238,7 +250,6 @@ function refreshAllSummaries(){
                   <td>${p.taux_execution? p.taux_execution+'%' : ''}</td><td>${p.responsable||''}</td>`;
     tb.appendChild(tr);
   });
-
   const td=total>0?dec/total:0, te=total>0?wx/total:0;
   document.getElementById('sum-total').textContent=money(total);
   document.getElementById('sum-decaisse').textContent=money(dec);
@@ -258,21 +269,18 @@ function buildLegend(values){
 }
 
 function buildGroupedTable(rows, key, tableId){
-  const by = {};
+  const by={};
   rows.forEach(r=>{
-    const k = r[key] || '(vide)';
-    if(!by[k]) by[k]={nb:0, m:0, d:0, wx:0};
-    by[k].nb += 1;
-    by[k].m  += r.montant;
-    by[k].d  += r.decaisse;
-    by[k].wx += r.tauxExec * r.montant;
+    const k=r[key]||'(vide)';
+    if(!by[k]) by[k]={nb:0,m:0,d:0,wx:0};
+    by[k].nb+=1; by[k].m+=r.montant; by[k].d+=r.decaisse; by[k].wx+=r.tauxExec*r.montant;
   });
-  const tbody = document.querySelector('#'+tableId+' tbody');
-  tbody.innerHTML = '';
+  const tbody=document.querySelector('#'+tableId+' tbody');
+  tbody.innerHTML='';
   Object.keys(by).sort((a,b)=>(''+a).localeCompare(b,'fr')).forEach(k=>{
-    const o=by[k], td = o.m>0 ? o.d/o.m : 0, te = o.m>0 ? o.wx/o.m : 0;
+    const o=by[k], td=o.m>0?o.d/o.m:0, te=o.m>0?o.wx/o.m:0;
     const tr=document.createElement('tr');
-    tr.innerHTML = `<td>${k}</td><td>${o.nb}</td><td>${money(o.m)}</td><td>${money(o.d)}</td><td>${pct(td)}</td><td>${(Math.round(te*10)/10)}%</td>`;
+    tr.innerHTML=`<td>${k}</td><td>${o.nb}</td><td>${money(o.m)}</td><td>${money(o.d)}</td><td>${pct(td)}</td><td>${(Math.round(te*10)/10)}%</td>`;
     tbody.appendChild(tr);
   });
 }
@@ -281,47 +289,45 @@ function buildGroupedTable(rows, key, tableId){
 function applyFilters(){
   allItems.eachLayer(l=>{
     const p=(l.feature&&l.feature.properties)||{};
-    const ok = matchFilter(p);
+    const ok=matchFilter(p);
     if(ok){ if(!map.hasLayer(l)) map.addLayer(l); }
     else  { if(map.hasLayer(l)) map.removeLayer(l); }
   });
   refreshAllSummaries();
-  persistLocal(); // on garde la vue en mémoire aussi
 }
 
 // ===== Rendu GeoJSON =====
 function renderGeoJSON(j){
   allItems.clearLayers();
-  const g = L.geoJSON(j,{
-    style: f => ({ color: colorForStatut((f.properties||{}).statut||''), weight:2, fillOpacity:0.35 }),
-    pointToLayer: (f, latlng) => {
-      const c = colorForStatut((f.properties||{}).statut||'');
-      const cm = L.circleMarker(latlng,{radius:7,weight:1,color:"#000",fillColor:c,fillOpacity:0.9});
-      cm._isCircle = true; return cm;
+  const g=L.geoJSON(j,{
+    style:f=>({color:colorForStatut((f.properties||{}).statut||''),weight:2,fillOpacity:0.35}),
+    pointToLayer:(f,latlng)=>{
+      const c=colorForStatut((f.properties||{}).statut||'');
+      const cm=L.circleMarker(latlng,{radius:7,weight:1,color:"#000",fillColor:c,fillOpacity:0.9});
+      cm._isCircle=true; return cm;
     },
-    onEachFeature: (feat, lay) => { allItems.addLayer(lay); lay.feature = feat; bindUI(lay, feat.properties || {}); }
+    onEachFeature:(feat, lay)=>{ allItems.addLayer(lay); lay.feature=feat; bindUI(lay, feat.properties||{}); }
   });
   try{ const b=g.getBounds(); if(b && b.isValid()) map.fitBounds(b.pad(0.2)); }catch(e){}
   buildFilterOptions();
   applyFilters();
-  persistLocal();
 }
 
-// ===== Dessin / Edition : AUTO-SAVE =====
-map.on(L.Draw.Event.CREATED,e=>{let l=e.layer; allItems.addLayer(l); sel=l; l=setProps(l,{}); buildFilterOptions(); applyFilters(); persistLocal();});
-map.on(L.Draw.Event.EDITED, ()=>{applyFilters(); persistLocal();});
-map.on(L.Draw.Event.DELETED, ()=>{sel=null; buildFilterOptions(); applyFilters(); persistLocal();});
+// ===== Dessin / Edition (autosave seulement si autorisé) =====
+map.on(L.Draw.Event.CREATED,e=>{let l=e.layer; allItems.addLayer(l); sel=l; l=setProps(l,{}); buildFilterOptions(); applyFilters(); autoSaveIfAllowed();});
+map.on(L.Draw.Event.EDITED, ()=>{applyFilters(); autoSaveIfAllowed();});
+map.on(L.Draw.Event.DELETED, ()=>{sel=null; buildFilterOptions(); applyFilters(); autoSaveIfAllowed();});
 
-// ===== Formulaire : AUTO-SAVE =====
+// Formulaire
 document.getElementById('apply').onclick=()=>{
   if(!sel){alert('Sélectionnez un objet.'); return;}
   let l=sel;
   const p={nom:nom.value.trim(),montant:montant.value.trim(),montant_decaisse:montant_decaisse.value.trim(),region:region.value.trim(),statut:statut.value,responsable:responsable.value.trim(),taux_execution:(()=>{const v=parseFloat(taux_execution.value.replace(',','.'));return isFinite(v)?String(v):'';})()};
-  l=setProps(l,p); sel=l; buildFilterOptions(); applyFilters(); persistLocal();
+  l=setProps(l,p); sel=l; buildFilterOptions(); applyFilters(); autoSaveIfAllowed();
 };
 document.getElementById('clear').onclick=()=>{['nom','montant','montant_decaisse','region','responsable','taux_execution'].forEach(id=>document.getElementById(id).value=''); statut.value='Planifié';};
 
-// ===== Import / Export =====
+// Import / Export / Local
 document.getElementById('export').onclick=()=>{
   const fc=collectFC();
   const blob=new Blob([JSON.stringify(fc,null,2)],{type:'application/geo+json'});
@@ -331,30 +337,66 @@ document.getElementById('export').onclick=()=>{
 document.getElementById('import').onclick=()=>file.click();
 document.getElementById('file').onchange=async e=>{
   const f=e.target.files[0]; if(!f) return;
-  try{ const t=await f.text(); const j=JSON.parse(t); renderGeoJSON(j); }catch(err){ alert('Import KO: '+err.message); }
+  try{ const t=await f.text(); const j=JSON.parse(t); renderGeoJSON(j); autoSaveIfAllowed(); }catch(err){ alert('Import KO: '+err.message); }
 };
 document.getElementById('load-embedded').onclick=()=>renderGeoJSON(INITIAL_DATA);
 
-// ===== Sélection d’un objet =====
-allItems.on('click',e=>{
-  sel=e.layer; const p=(sel.feature&&sel.feature.properties)||{};
-  nom.value=p.nom||''; montant.value=p.montant||''; montant_decaisse.value=p.montant_decaisse||'';
-  region.value=p.region||''; statut.value=p.statut||'Planifié'; responsable.value=p.responsable||''; taux_execution.value=p.taux_execution||'';
-});
+document.getElementById('btn-save-local').onclick=()=>saveLocal();
+document.getElementById('btn-load-local').onclick=()=>{
+  const j=loadLocalAny(); if(!j){ alert('Aucune sauvegarde locale trouvée'); return; }
+  renderGeoJSON(j); allowAutoSave=true;
+};
 
-// ===== Légende =====
-function buildLegend(values){
-  const cont=document.getElementById('legend'), items=document.getElementById('legendItems');
-  items.innerHTML=''; if(!values.length){cont.style.display='none';return;}
-  values.forEach(v=>{const c=colorForStatut(v); const div=document.createElement('div'); div.className='item'; div.innerHTML=`<span class="sw" style="background:${c}"></span><span>${v}</span>`; items.appendChild(div);});
-  cont.style.display='block';
+// ===== GitHub Sync (manuel) =====
+const GH_USER="nmakhou-ux", GH_REPO="carte-projets", GH_BRANCH="main", GH_PATH="data/projets.geojson";
+const RAW_URL=`https://raw.githubusercontent.com/${GH_USER}/${GH_REPO}/${GH_BRANCH}/${GH_PATH}`;
+const API_URL=`https://api.github.com/repos/${GH_USER}/${GH_REPO}/contents/${GH_PATH}`;
+
+function b64(s){ return btoa(unescape(encodeURIComponent(s))); }
+function getGhToken(){
+  let t=localStorage.getItem('gh_token');
+  if(!t){ t=prompt("Collez votre GitHub Personal Access Token (scope: repo) :"); if(!t) return null; localStorage.setItem('gh_token',t); }
+  return t;
 }
+async function loadFromGitHub(){
+  const r=await fetch(RAW_URL,{cache:'no-store'});
+  if(!r.ok) throw new Error("Fichier GitHub introuvable");
+  return await r.json();
+}
+async function saveToGitHub(fc){
+  const token=getGhToken(); if(!token) return;
+  let sha=null;
+  const head=await fetch(API_URL,{headers:{Authorization:`Bearer ${token}`,Accept:'application/vnd.github+json'}});
+  if(head.ok) sha=(await head.json()).sha;
+  const res=await fetch(API_URL,{
+    method:'PUT',
+    headers:{Authorization:`Bearer ${token}`,Accept:'application/vnd.github+json','Content-Type':'application/json'},
+    body:JSON.stringify({message:'update projets.geojson from app',content:b64(JSON.stringify(fc,null,2)),sha,branch:GH_BRANCH})
+  });
+  if(!res.ok){ const t=await res.text(); throw new Error(t||'Erreur API GitHub'); }
+}
+document.getElementById('gh-token').onclick=()=>{ const t=prompt("Collez votre token (scope: repo) :"); if(t){ localStorage.setItem('gh_token',t); alert("Token enregistré ✔"); } };
+document.getElementById('gh-token-clear').onclick=()=>{ localStorage.removeItem('gh_token'); alert("Token effacé."); };
+document.getElementById('gh-load').onclick=async()=>{
+  try{ const j=await loadFromGitHub(); renderGeoJSON(j); alert("Chargé depuis GitHub ✅"); }
+  catch(e){ alert("Chargement GitHub: "+e.message); }
+};
+document.getElementById('gh-save').onclick=async()=>{
+  try{ await saveToGitHub(collectFC()); alert("Publié sur GitHub ✅"); }
+  catch(e){ alert("Publication GitHub: "+e.message); }
+};
 
-// ===== Démarrage : on charge d’abord la sauvegarde locale s’il y en a une =====
-(function start(){
-  const saved = loadLocal();
-  if (saved) renderGeoJSON(saved);
-  else       renderGeoJSON(INITIAL_DATA);
+// ===== Démarrage (sûr) : GitHub -> local -> intégré =====
+(async function start(){
+  try{
+    const j=await loadFromGitHub();
+    renderGeoJSON(j);
+    // pas d'écriture automatique ici
+  }catch(e){
+    const saved=loadLocalAny();
+    if(saved) renderGeoJSON(saved);
+    else      renderGeoJSON(INITIAL_DATA);
+  }
 })();
 </script>
 </body>
