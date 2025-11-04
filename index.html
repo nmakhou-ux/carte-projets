@@ -180,30 +180,20 @@ function applyStyle(l,props){
 }
 function setProps(l,props){const f=toFeature(l); f.properties=Object.assign({},f.properties||{},props); l.feature=f; bindUI(l,f.properties); return applyStyle(l,f.properties);}
 
-// ===== Sauvegarde locale (avec migration) =====
-const STORAGE_KEYS = ['projets_geojson_v3','projets_geojson_v2','projets_geojson_static_v1'];
-
+// ===== Sauvegarde locale =====
+const STORAGE_KEY = 'projets_geojson_v3';
 function collectFC(){
   const feats=[]; allItems.eachLayer(l=>feats.push(toFeature(l)));
   return {type:'FeatureCollection', features:feats};
 }
 function persistLocal(){
-  try{ localStorage.setItem(STORAGE_KEYS[0], JSON.stringify(collectFC())); }catch(e){}
+  try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(collectFC())); }catch(e){}
 }
-function loadLocalAny(){
-  for (const k of STORAGE_KEYS){
-    const t = localStorage.getItem(k);
-    if (!t) continue;
-    try {
-      const j = JSON.parse(t);
-      // migre vers v3 si trouvé sous une ancienne clé
-      if (k !== STORAGE_KEYS[0]) localStorage.setItem(STORAGE_KEYS[0], JSON.stringify(j));
-      return j;
-    } catch(e){}
-  }
-  return null;
+function loadLocal(){
+  const t=localStorage.getItem(STORAGE_KEY);
+  if(!t) return null;
+  try{ return JSON.parse(t); }catch(e){ return null; }
 }
-
 
 // ===== Filtres =====
 const fStatut = document.getElementById('filtre-statut');
