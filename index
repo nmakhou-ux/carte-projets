@@ -80,7 +80,7 @@
     <div class="card">
       <b>Liste (affichée)</b>
       <table>
-        <thead><tr><th>Projet</th><th>Région</th><th>Statut</th><th>Montant</th><th>Décaissé</th><th>% Déc.</th><th>% Exéc.</th><th>Resp.</th></tr></thead>
+<thead><tr><th></th><th>Projet</th><th>Région</th><th>Statut</th><th>Montant</th><th>Décaissé</th><th>% Déc.</th><th>% Exéc.</th><th>Resp.</th></tr></thead>
         <tbody id="tbl"></tbody>
       </table>
     </div>
@@ -135,11 +135,26 @@ function refreshTableAndLegend(){
     const p=(l.feature&&l.feature.properties)||{};
     const m=toNum(p.montant), d=toNum(p.montant_decaisse), t=m>0?d/m:0, te=toNum(p.taux_execution);
     total+=m; dec+=d; wx+=(isFinite(te)?te:0)*m; if(p.statut) statuses.add(p.statut);
-    const tr=document.createElement('tr');
-    tr.innerHTML=`<td>${p.nom||''}</td><td>${p.region||''}</td><td>${p.statut||''}</td>
-                  <td>${p.montant||''}</td><td>${p.montant_decaisse||''}</td><td>${pct(t)}</td>
-                  <td>${p.taux_execution? p.taux_execution+'%' : ''}</td><td>${p.responsable||''}</td>`;
-    tb.appendChild(tr);
+    
+const tr = document.createElement('tr');
+tr.innerHTML = `
+  <td><button class="btn" style="padding:4px 8px" data-edit="1">Éditer</button></td>
+  <td>${p.nom||''}</td><td>${p.region||''}</td><td>${p.statut||''}</td>
+  <td>${p.montant||''}</td><td>${p.montant_decaisse||''}</td><td>${pct(t)}</td>
+  <td>${p.taux_execution? p.taux_execution+'%' : ''}</td><td>${p.responsable||''}</td>
+`;
+tr.querySelector('[data-edit]').onclick = () => {
+  sel = l; // ✅ on sélectionne le bon objet sans cliquer la carte
+
+  nom.value = p.nom || '';
+  montant.value = p.montant || '';
+  montant_decaisse.value = p.montant_decaisse || '';
+  region.value = p.region || '';
+  statut.value = p.statut || 'Planifié';
+  responsable.value = p.responsable || '';
+  taux_execution.value = p.taux_execution || '';
+};
+tb.appendChild(tr);
   });
   const td=total>0?dec/total:0, te=total>0?wx/total:0;
   document.getElementById('sum-total').textContent=money(total);
