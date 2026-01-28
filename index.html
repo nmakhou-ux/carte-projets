@@ -3,20 +3,19 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Carte Projets — filtres + synthèses + synchro GitHub</title>
+<title>Carte Projets — Stockage partagé Google Sheets</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css" />
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
 <style>
   html,body{height:100%;margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial}
-  #layout{display:grid;grid-template-columns:480px 1fr;height:100vh}
-  #side{padding:14px;overflow:auto;border-right:1px solid #ddd;background:#fafafa}
+  #layout{display:grid;grid-template-columns:420px 1fr;height:100%}
+  #side{padding:14px;overflow:auto;border-right:1px solid #ddd}
   #map{width:100%;height:100%}
-  .card{border:1px solid #ddd;border-radius:10px;padding:12px;margin-bottom:12px;background:#fff}
-  .row{display:flex;gap:8px;flex-wrap:wrap}.row>*{flex:1 1 45%}
+  .card{border:1px solid #ddd;border-radius:10px;padding:10px;margin-bottom:10px}
+  .row{display:flex;gap:8px}.row>*{flex:1}
   .btn{padding:8px 10px;border:1px solid #bbb;border-radius:8px;background:#f5f5f5;cursor:pointer}
-  .btn.warn{background:#ffe9e9;border-color:#f3b0b0}
   table{width:100%;border-collapse:collapse;font-size:13px}
   th,td{border-bottom:1px solid #eee;padding:6px 4px;text-align:left}
   .legend{position:absolute;bottom:20px;left:20px;z-index:1000;background:#fff;border:1px solid #333;border-radius:8px;padding:8px 10px}
@@ -27,30 +26,25 @@
 <body>
 <div id="layout">
   <div id="side">
-    <h3>Gestion & Suivi de Projets</h3>
+    <h3>Gestion & Suivi de Projets (Sheets)</h3>
 
-    <!-- Filtres -->
     <div class="card">
-      <b>Filtres</b>
-      <div class="row" style="margin-top:6px">
-        <div>
-          <label>Statut</label>
-          <select id="filtre-statut" style="width:100%"><option value="">Tous</option></select>
-        </div>
-        <div>
-          <label>Région</label>
-          <select id="filtre-region" style="width:100%"><option value="">Toutes</option></select>
-        </div>
+      <div class="row">
+        <button class="btn" id="load-sheets">Charger (Sheets)</button>
+        <button class="btn" id="save-sheets">Publier (Sheets)</button>
       </div>
       <div class="row" style="margin-top:6px">
-        <button class="btn" id="btn-reset">Réinitialiser</button>
+        <button class="btn" id="export">Exporter GeoJSON</button>
+        <button class="btn" id="import">Importer GeoJSON</button>
+      </div>
+      <input type="file" id="file" style="display:none" accept=".geojson,.json" />
+      <div style="margin-top:6px;font-size:12px;opacity:.8">
+        Remplacez la constante <code>SHEETS_URL</code> par l’URL de votre Apps Script (déployé en web app).
       </div>
     </div>
 
-    <!-- Saisie / Edition -->
     <div class="card">
-      <b>Saisie / Edition</b>
-      <div class="row" style="margin-top:6px"><div><label>Nom</label><input id="nom" style="width:100%"></div></div>
+      <div class="row"><div><label>Nom</label><input id="nom" style="width:100%"></div></div>
       <div class="row">
         <div><label>Montant</label><input id="montant" style="width:100%"></div>
         <div><label>Décaissé</label><input id="montant_decaisse" style="width:100%"></div>
@@ -73,9 +67,8 @@
       </div>
     </div>
 
-    <!-- Synthèse -->
     <div class="card">
-      <b>Synthèse (filtrée)</b>
+      <b>Synthèse</b>
       <div style="margin-top:6px;display:grid;grid-template-columns:1fr 1fr;gap:8px">
         <div>Total: <b id="sum-total">0</b></div>
         <div>Décaissé: <b id="sum-decaisse">0</b></div>
@@ -85,52 +78,11 @@
     </div>
 
     <div class="card">
-      <b>Liste (filtrée)</b>
+      <b>Liste (affichée)</b>
       <table>
-        <thead><tr><th></th><th>Projet</th><th>Région</th><th>Statut</th><th>Montant</th><th>Décaissé</th><th>% Déc.</th><th>% Exéc.</th><th>Resp.</th></tr></thead>
+<thead><tr><th></th><th>Projet</th><th>Région</th><th>Statut</th><th>Montant</th><th>Décaissé</th><th>% Déc.</th><th>% Exéc.</th><th>Resp.</th></tr></thead>
         <tbody id="tbl"></tbody>
       </table>
-    </div>
-
-    <div class="card">
-      <b>Synthèse par Statut (filtrée)</b>
-      <table id="tblStatut">
-        <thead><tr><th>Statut</th><th>Nb</th><th>Montant</th><th>Décaissé</th><th>% Déc.</th><th>% Exéc. pondéré</th></tr></thead>
-        <tbody></tbody>
-      </table>
-    </div>
-
-    <div class="card">
-      <b>Synthèse par Région (filtrée)</b>
-      <table id="tblRegion">
-        <thead><tr><th>Région</th><th>Nb</th><th>Montant</th><th>Décaissé</th><th>% Déc.</th><th>% Exéc. pondéré</th></tr></thead>
-        <tbody></tbody>
-      </table>
-    </div>
-
-    <!-- Import / Export / Local / GitHub -->
-    <div class="card">
-      <div class="row">
-        <button class="btn" id="export">Exporter GeoJSON</button>
-        <button class="btn" id="import">Importer GeoJSON</button>
-        <button class="btn" id="load-embedded">Recharger données intégrées</button>
-      </div>
-      <div class="row" style="margin-top:6px">
-        <button class="btn" id="btn-save-local">Sauvegarder (local)</button>
-        <button class="btn" id="btn-load-local">Charger (local)</button>
-      </div>
-      <div class="row" style="margin-top:6px">
-        <button class="btn" id="gh-load">Charger (GitHub)</button>
-        <button class="btn" id="gh-save">Publier (GitHub)</button>
-      </div>
-      <div class="row" style="margin-top:6px">
-        <button class="btn" id="gh-token">Enregistrer Token</button>
-        <button class="btn warn" id="gh-token-clear">Effacer Token</button>
-      </div>
-      <div style="margin-top:6px;font-size:12px;opacity:.85">
-        Fichier distant : <b>nmakhou-ux/carte-projets@main → data/projets.geojson</b>
-      </div>
-      <input type="file" id="file" style="display:none" accept=".geojson,.json" />
     </div>
   </div>
 
@@ -142,21 +94,10 @@
 </div>
 
 <script>
-// ===== Données intégrées =====
-const INITIAL_DATA = {"type":"FeatureCollection","features":[
-  {"type":"Feature","properties":{"nom":"Exemple — Forage de Ndiass","montant":"125000000","montant_decaisse":"80000000","region":"Thiès","statut":"En cours","responsable":"A. Diop","taux_execution":"65"},"geometry":{"type":"Point","coordinates":[-17.07,14.67]}},
-  {"type":"Feature","properties":{"nom":"Construction terminal port de dakar","montant":"45000000000","montant_decaisse":"","region":"Dakar","statut":"Planifié","responsable":"DIP","taux_execution":"0"},"geometry":{"type":"Point","coordinates":[-17.442169,14.681911]}},
-  {"type":"Feature","properties":{"nom":"Construction Hhôpital de Saint louis","montant":"46000000000","montant_decaisse":"12000000000","region":"Saint louis","statut":"En retard","responsable":"DIS","taux_execution":"15"},"geometry":{"type":"Point","coordinates":[-16.413574,16.193575]}},
-  {"type":"Feature","properties":{"nom":"Construction Hopital regional de Kédougou","montant":"25000000000","montant_decaisse":"25000000000","region":"Kédougou","statut":"Terminé","responsable":"DIS","taux_execution":"0"},"geometry":{"type":"Point","coordinates":[-12.403564,12.715368]}},
-  {"type":"Feature","properties":{"nom":"Construction pont de Ziguinchor","montant":"52000000000","montant_decaisse":"","region":"Ziguinchor","statut":"Planifié","responsable":"Ageroute","taux_execution":"0"},"geometry":{"type":"Point","coordinates":[-16.261139,12.537137]}},
-  {"type":"Feature","properties":{"nom":"Construction lycée de Matam","montant":"2500000000","montant_decaisse":"1200000000","region":"Matam","statut":"En cours","responsable":"DIE","taux_execution":"45"},"geometry":{"type":"Point","coordinates":[-13.820801,15.871525]}},
-  {"type":"Feature","properties":{"nom":"Construction du port sec de Tambacounda","montant":"54000000000","montant_decaisse":"","region":"Tambacounda","statut":"Planifié","responsable":"AGEROUTE","taux_execution":"0"},"geometry":{"type":"Point","coordinates":[-13.612061,13.624633]}},
-  {"type":"Feature","properties":{"nom":"Construction hôpital de Touba","montant":"46000000000","montant_decaisse":"25000000000","region":"Diourbel","statut":"En cours","responsable":"","taux_execution":"60"},"geometry":{"type":"Point","coordinates":[-15.954895,14.839939]}},
-  {"type":"Feature","properties":{"nom":"Construction centre de santé de Linguère","montant":"3000000000","montant_decaisse":"3000000000","region":"Louga","statut":"Terminé","responsable":"","taux_execution":"0"},"geometry":{"type":"Point","coordinates":[-15.249023,15.315976]}}
-]};
+// === CONFIG: remplacez par l'URL de votre Apps Script déployé (doGet/doPost) ===
+const SHEETS_URL = "https://script.google.com/macros/s/REPLACE_WITH_YOURS/exec";
 
-// ===== Carte =====
-const map = L.map('map').setView([14.7,-17.4], 7);
+const map = L.map('map').setView([14.7,-17.4], 8);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OSM'}).addTo(map);
 const allItems = new L.FeatureGroup().addTo(map);
 map.addControl(new L.Control.Draw({draw:{polygon:true,polyline:true,rectangle:true,circle:false,marker:true,circlemarker:false},edit:{featureGroup:allItems}}));
@@ -186,100 +127,16 @@ function applyStyle(l,props){
 }
 function setProps(l,props){const f=toFeature(l); f.properties=Object.assign({},f.properties||{},props); l.feature=f; bindUI(l,f.properties); return applyStyle(l,f.properties);}
 
-// ===== Sauvegarde locale (manuelle, avec migration) =====
-const STORAGE_KEYS = ['projets_geojson_v3','projets_geojson_v2','projets_geojson_static_v1'];
-let allowAutoSave = false; // rien n'est écrit tant que tu n'as pas cliqué Sauvegarder/Charger
-
-function collectFC(){
-  const feats=[]; allItems.eachLayer(l=>feats.push(toFeature(l)));
-  return {type:'FeatureCollection', features:feats};
-}
-function saveLocal(){
-  try{ localStorage.setItem(STORAGE_KEYS[0], JSON.stringify(collectFC())); alert('Données sauvegardées en local ✔'); allowAutoSave=true; }
-  catch(e){ alert('Sauvegarde locale: '+e.message); }
-}
-function loadLocalAny(){
-  for(const k of STORAGE_KEYS){
-    const t=localStorage.getItem(k); if(!t) continue;
-    try{ const j=JSON.parse(t); if(k!==STORAGE_KEYS[0]) localStorage.setItem(STORAGE_KEYS[0], JSON.stringify(j)); return j; }
-    catch(e){}
-  }
-  return null;
-}
-function autoSaveIfAllowed(){ if(allowAutoSave) saveLocal(); }
-
-// ===== Filtres =====
-const fStatut = document.getElementById('filtre-statut');
-const fRegion = document.getElementById('filtre-region');
-document.getElementById('btn-reset').onclick=()=>{ fStatut.value=""; fRegion.value=""; applyFilters(); };
-
-function uniqueSorted(arr){return Array.from(new Set(arr.filter(Boolean))).sort((a,b)=>(''+a).localeCompare(b,'fr'));}
-function buildFilterOptions(){
-  const stats=[], regs=[];
-  allItems.eachLayer(l=>{
-    const p=(l.feature&&l.feature.properties)||{};
-    stats.push(p.statut); regs.push(p.region);
-  });
-  const s=uniqueSorted(stats), r=uniqueSorted(regs);
-  fStatut.innerHTML='<option value="">Tous</option>'+s.map(x=>`<option>${x}</option>`).join('');
-  fRegion.innerHTML='<option value="">Toutes</option>'+r.map(x=>`<option>${x}</option>`).join('');
-}
-fStatut.onchange = fRegion.onchange = ()=>applyFilters();
-
-function matchFilter(p){
-  const s=fStatut.value, r=fRegion.value;
-  if (s && (p.statut||'')!==s) return false;
-  if (r && (p.region||'')!==r) return false;
-  return true;
-}
-
-// ===== Tableaux & synthèses (sur VISIBLE = filtré) =====
-function refreshAllSummaries(){
+function refreshTableAndLegend(){
   const tb=document.getElementById('tbl'); tb.innerHTML='';
   let total=0,dec=0,wx=0; const statuses=new Set();
-  const rows=[];
   allItems.eachLayer(l=>{
     if(!map.hasLayer(l)) return;
     const p=(l.feature&&l.feature.properties)||{};
     const m=toNum(p.montant), d=toNum(p.montant_decaisse), t=m>0?d/m:0, te=toNum(p.taux_execution);
     total+=m; dec+=d; wx+=(isFinite(te)?te:0)*m; if(p.statut) statuses.add(p.statut);
-    rows.push({statut:p.statut||'', region:p.region||'', montant:m, decaisse:d, tauxExec:isFinite(te)?te:0});
-    const tr=document.createElement('tr');
-    tr.innerHTML=`<td>${p.nom||''}</td><td>${p.region||''}</td><td>${p.statut||''}</td>
-                  <td>${p.montant||''}</td><td>${p.montant_decaisse||''}</td><td>${pct(t)}</td>
-                  <td>${p.taux_execution? p.taux_execution+'%' : ''}</td><td>${p.responsable||''}</td>`;
-    tb.appendChild(tr);
-  });
-  const td=total>0?dec/total:0, te=total>0?wx/total:0;
-  document.getElementById('sum-total').textContent=money(total);
-  document.getElementById('sum-decaisse').textContent=money(dec);
-  document.getElementById('sum-taux-dec').textContent=pct(td);
-  document.getElementById('sum-taux-exec').textContent=(Math.round(te*10)/10)+'%';
-
-  buildLegend(Array.from(statuses).filter(Boolean).sort());
-  buildGroupedTable(rows, 'statut', 'tblStatut');
-  buildGroupedTable(rows, 'region', 'tblRegion');
-}
-
-function buildLegend(values){
-  const cont=document.getElementById('legend'), items=document.getElementById('legendItems');
-  items.innerHTML=''; if(!values.length){cont.style.display='none';return;}
-  values.forEach(v=>{const c=colorForStatut(v); const div=document.createElement('div'); div.className='item'; div.innerHTML=`<span class="sw" style="background:${c}"></span><span>${v}</span>`; items.appendChild(div);});
-  cont.style.display='block';
-}
-
-function buildGroupedTable(rows, key, tableId){
-  const by={};
-  rows.forEach(r=>{
-    const k=r[key]||'(vide)';
-    if(!by[k]) by[k]={nb:0,m:0,d:0,wx:0};
-    by[k].nb+=1; by[k].m+=r.montant; by[k].d+=r.decaisse; by[k].wx+=r.tauxExec*r.montant;
-  });
-  const tbody=document.querySelector('#'+tableId+' tbody');
-  tbody.innerHTML='';
-  Object.keys(by).sort((a,b)=>(''+a).localeCompare(b,'fr')).forEach(k=>{
-    const o=by[k], td=o.m>0?o.d/o.m:0, te=o.m>0?o.wx/o.m:0;
-    const tr = document.createElement('tr');
+    
+const tr = document.createElement('tr');
 tr.innerHTML = `
   <td><button class="btn" style="padding:4px 8px" data-edit="1">Éditer</button></td>
   <td>${p.nom||''}</td><td>${p.region||''}</td><td>${p.statut||''}</td>
@@ -298,124 +155,101 @@ tr.querySelector('[data-edit]').onclick = () => {
   taux_execution.value = p.taux_execution || '';
 };
 tb.appendChild(tr);
-    
   });
+  const td=total>0?dec/total:0, te=total>0?wx/total:0;
+  document.getElementById('sum-total').textContent=money(total);
+  document.getElementById('sum-decaisse').textContent=money(dec);
+  document.getElementById('sum-taux-dec').textContent=pct(td);
+  document.getElementById('sum-taux-exec').textContent=(Math.round(te*10)/10)+'%';
+  buildLegend(Array.from(statuses).filter(Boolean).sort());
 }
-
-// ===== Application des filtres =====
-function applyFilters(){
-  allItems.eachLayer(l=>{
-    const p=(l.feature&&l.feature.properties)||{};
-    const ok=matchFilter(p);
-    if(ok){ if(!map.hasLayer(l)) map.addLayer(l); }
-    else  { if(map.hasLayer(l)) map.removeLayer(l); }
-  });
-  refreshAllSummaries();
+function buildLegend(values){
+  const cont=document.getElementById('legend'), items=document.getElementById('legendItems');
+  items.innerHTML=''; if(!values.length){cont.style.display='none';return;}
+  values.forEach(v=>{const c=colorForStatut(v); const div=document.createElement('div'); div.className='item'; div.innerHTML=`<span class="sw" style="background:${c}"></span><span>${v}</span>`; items.appendChild(div);});
+  cont.style.display='block';
 }
-
-// ===== Rendu GeoJSON =====
-function renderGeoJSON(j){
-  allItems.clearLayers();
-  const g=L.geoJSON(j,{
-    style:f=>({color:colorForStatut((f.properties||{}).statut||''),weight:2,fillOpacity:0.35}),
-    pointToLayer:(f,latlng)=>{
-      const c=colorForStatut((f.properties||{}).statut||'');
-      const cm=L.circleMarker(latlng,{radius:7,weight:1,color:"#000",fillColor:c,fillOpacity:0.9});
-      cm._isCircle=true; return cm;
-    },
-    onEachFeature:(feat, lay)=>{ allItems.addLayer(lay); lay.feature=feat; bindUI(lay, feat.properties||{}); }
-  });
-  try{ const b=g.getBounds(); if(b && b.isValid()) map.fitBounds(b.pad(0.2)); }catch(e){}
-  buildFilterOptions();
-  applyFilters();
-}
-
-// ===== Dessin / Edition (autosave seulement si autorisé) =====
-map.on(L.Draw.Event.CREATED,e=>{let l=e.layer; allItems.addLayer(l); sel=l; l=setProps(l,{}); buildFilterOptions(); applyFilters(); autoSaveIfAllowed();});
-map.on(L.Draw.Event.EDITED, ()=>{applyFilters(); autoSaveIfAllowed();});
-map.on(L.Draw.Event.DELETED, ()=>{sel=null; buildFilterOptions(); applyFilters(); autoSaveIfAllowed();});
 
 // Formulaire
 document.getElementById('apply').onclick=()=>{
   if(!sel){alert('Sélectionnez un objet.'); return;}
   let l=sel;
   const p={nom:nom.value.trim(),montant:montant.value.trim(),montant_decaisse:montant_decaisse.value.trim(),region:region.value.trim(),statut:statut.value,responsable:responsable.value.trim(),taux_execution:(()=>{const v=parseFloat(taux_execution.value.replace(',','.'));return isFinite(v)?String(v):'';})()};
-  l=setProps(l,p); sel=l; buildFilterOptions(); applyFilters(); autoSaveIfAllowed();
+  l=setProps(l,p); sel=l; refreshTableAndLegend();
 };
 document.getElementById('clear').onclick=()=>{['nom','montant','montant_decaisse','region','responsable','taux_execution'].forEach(id=>document.getElementById(id).value=''); statut.value='Planifié';};
 
-// Import / Export / Local
+// Sélection
+allItems.on('click',e=>{
+  sel=e.layer; const p=(sel.feature&&sel.feature.properties)||{};
+  nom.value=p.nom||''; montant.value=p.montant||''; montant_decaisse.value=p.montant_decaisse||'';
+  region.value=p.region||''; statut.value=p.statut||'Planifié'; responsable.value=p.responsable||''; taux_execution.value=p.taux_execution||'';
+});
+
+// Import / Export
 document.getElementById('export').onclick=()=>{
-  const fc=collectFC();
-  const blob=new Blob([JSON.stringify(fc,null,2)],{type:'application/geo+json'});
+  const feats=[]; allItems.eachLayer(l=>feats.push(toFeature(l)));
+  const blob=new Blob([JSON.stringify({type:'FeatureCollection',features:feats},null,2)],{type:'application/geo+json'});
   const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='projets.geojson'; a.click();
   setTimeout(()=>URL.revokeObjectURL(a.href),300);
 };
 document.getElementById('import').onclick=()=>file.click();
 document.getElementById('file').onchange=async e=>{
   const f=e.target.files[0]; if(!f) return;
-  try{ const t=await f.text(); const j=JSON.parse(t); renderGeoJSON(j); autoSaveIfAllowed(); }catch(err){ alert('Import KO: '+err.message); }
-};
-document.getElementById('load-embedded').onclick=()=>renderGeoJSON(INITIAL_DATA);
-
-document.getElementById('btn-save-local').onclick=()=>saveLocal();
-document.getElementById('btn-load-local').onclick=()=>{
-  const j=loadLocalAny(); if(!j){ alert('Aucune sauvegarde locale trouvée'); return; }
-  renderGeoJSON(j); allowAutoSave=true;
+  try{ const t=await f.text(); const j=JSON.parse(t); renderGeoJSON(j); }catch(err){ alert('Import KO: '+err.message); }
 };
 
-// ===== GitHub Sync (manuel) =====
-const GH_USER="nmakhou-ux", GH_REPO="carte-projets", GH_BRANCH="main", GH_PATH="data/projets.geojson";
-const RAW_URL=`https://raw.githubusercontent.com/${GH_USER}/${GH_REPO}/${GH_BRANCH}/${GH_PATH}`;
-const API_URL=`https://api.github.com/repos/${GH_USER}/${GH_REPO}/contents/${GH_PATH}`;
-
-function b64(s){ return btoa(unescape(encodeURIComponent(s))); }
-function getGhToken(){
-  let t=localStorage.getItem('gh_token');
-  if(!t){ t=prompt("Collez votre GitHub Personal Access Token (scope: repo) :"); if(!t) return null; localStorage.setItem('gh_token',t); }
-  return t;
-}
-async function loadFromGitHub(){
-  const r=await fetch(RAW_URL,{cache:'no-store'});
-  if(!r.ok) throw new Error("Fichier GitHub introuvable");
-  return await r.json();
-}
-async function saveToGitHub(fc){
-  const token=getGhToken(); if(!token) return;
-  let sha=null;
-  const head=await fetch(API_URL,{headers:{Authorization:`Bearer ${token}`,Accept:'application/vnd.github+json'}});
-  if(head.ok) sha=(await head.json()).sha;
-  const res=await fetch(API_URL,{
-    method:'PUT',
-    headers:{Authorization:`Bearer ${token}`,Accept:'application/vnd.github+json','Content-Type':'application/json'},
-    body:JSON.stringify({message:'update projets.geojson from app',content:b64(JSON.stringify(fc,null,2)),sha,branch:GH_BRANCH})
+// Rendu GeoJSON
+function renderGeoJSON(j){
+  allItems.clearLayers();
+  const g = L.geoJSON(j,{
+    style: f => ({ color: colorForStatut((f.properties||{}).statut||''), weight:2, fillOpacity:0.35 }),
+    pointToLayer: (f, latlng) => {
+      const c = colorForStatut((f.properties||{}).statut||'');
+      const cm = L.circleMarker(latlng,{radius:7,weight:1,color:"#000",fillColor:c,fillOpacity:0.9});
+      cm._isCircle = true; return cm;
+    },
+    onEachFeature: (feat, lay) => { allItems.addLayer(lay); lay.feature = feat; bindUI(lay, feat.properties || {}); }
   });
-  if(!res.ok){ const t=await res.text(); throw new Error(t||'Erreur API GitHub'); }
+  try{ const b=g.getBounds(); if(b && b.isValid()) map.fitBounds(b.pad(0.2)); }catch(e){}
+  refreshTableAndLegend();
 }
-document.getElementById('gh-token').onclick=()=>{ const t=prompt("Collez votre token (scope: repo) :"); if(t){ localStorage.setItem('gh_token',t); alert("Token enregistré ✔"); } };
-document.getElementById('gh-token-clear').onclick=()=>{ localStorage.removeItem('gh_token'); alert("Token effacé."); };
-document.getElementById('gh-load').onclick=async()=>{
-  try{ const j=await loadFromGitHub(); renderGeoJSON(j); alert("Chargé depuis GitHub ✅"); }
-  catch(e){ alert("Chargement GitHub: "+e.message); }
-};
-document.getElementById('gh-save').onclick=async()=>{
-  try{ await saveToGitHub(collectFC()); alert("Publié sur GitHub ✅"); }
-  catch(e){ alert("Publication GitHub: "+e.message); }
-};
 
-// ===== Démarrage (sûr) : GitHub -> local -> intégré =====
-(async function start(){
+// Dessin
+map.on(L.Draw.Event.CREATED,e=>{let l=e.layer; allItems.addLayer(l); sel=l; l=setProps(l,{}); refreshTableAndLegend();});
+map.on(L.Draw.Event.EDITED,()=>{refreshTableAndLegend();});
+map.on(L.Draw.Event.DELETED,()=>{sel=null; refreshTableAndLegend();});
+
+// ======= Google Sheets: charger / publier =======
+async function loadFromSheets(){
   try{
-    const j=await loadFromGitHub();
+    const r = await fetch(SHEETS_URL, { cache:'no-store' });
+    if(!r.ok){ alert("Impossible de charger depuis Sheets (vérifiez l'URL Apps Script)."); return; }
+    const j = await r.json();
     renderGeoJSON(j);
-    // pas d'écriture automatique ici
-  }catch(e){
-    const saved=loadLocalAny();
-    if(saved) renderGeoJSON(saved);
-    else      renderGeoJSON(INITIAL_DATA);
+    alert("Données chargées depuis Google Sheets ✅");
+  }catch(e){ alert("Erreur Sheets (GET): "+e.message); }
+}
+async function saveToSheets(){
+  try{
+    const feats=[]; allItems.eachLayer(l=>feats.push(toFeature(l)));
+    const body = { type:'FeatureCollection', features:feats };
+    const r = await fetch(SHEETS_URL, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+    if(!r.ok){ const t=await r.text(); throw new Error(t||"POST non OK"); }
+    alert("Données publiées vers Google Sheets ✅");
+  }catch(e){ alert("Erreur Sheets (POST): "+e.message); }
+}
+document.getElementById('load-sheets').onclick=loadFromSheets;
+document.getElementById('save-sheets').onclick=saveToSheets;
+
+// Exemple si la feuille est vide
+setTimeout(()=>{
+  if(allItems.getLayers().length===0){
+    let seed=L.circleMarker([14.67,-17.07],{radius:7,weight:1,color:"#000",fillColor:"#2ca02c",fillOpacity:0.9}).addTo(allItems);
+    setProps(seed,{nom:'Exemple — Forage de Ndiass',montant:'125000000',montant_decaisse:'80000000',region:'Thiès',statut:'En cours',responsable:'A. Diop',taux_execution:'65'});
+    refreshTableAndLegend();
   }
-})();
+},500);
 </script>
 </body>
 </html>
-
