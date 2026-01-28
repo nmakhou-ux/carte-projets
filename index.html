@@ -87,7 +87,12 @@
     <div class="card">
       <b>Liste (filtrée)</b>
       <table>
-<thead><tr><th></th><th>Projet</th><th>Région</th><th>Statut</th><th>Montant</th><th>Décaissé</th><th>% Déc.</th><th>% Exéc.</th><th>Resp.</th></tr></thead>
+<thead><tr>
+  <th></th>
+  <th></th>
+  <th>Projet</th><th>Région</th><th>Statut</th><th>Montant</th><th>Décaissé</th><th>% Déc.</th><th>% Exéc.</th><th>Resp.</th>
+</tr></thead>
+
         <tbody id="tbl"></tbody>
       </table>
     </div>
@@ -245,18 +250,21 @@ function refreshAllSummaries(){
     total+=m; dec+=d; wx+=(isFinite(te)?te:0)*m; if(p.statut) statuses.add(p.statut);
     rows.push({statut:p.statut||'', region:p.region||'', montant:m, decaisse:d, tauxExec:isFinite(te)?te:0});
 
-   
+  
 
 const tr = document.createElement('tr');
 tr.innerHTML = `
-  <td><button class="btn" style="padding:4px 8px" data-edit="1">Éditer</button></td>
+  <td><button class="btn" style="padding:4px 8px">Éditer</button></td>
+  <td><button class="btn warn" style="padding:4px 8px">DEL</button></td>
+
   <td>${p.nom||''}</td><td>${p.region||''}</td><td>${p.statut||''}</td>
   <td>${p.montant||''}</td><td>${p.montant_decaisse||''}</td><td>${pct(t)}</td>
   <td>${p.taux_execution? p.taux_execution+'%' : ''}</td><td>${p.responsable||''}</td>
 `;
-tr.querySelector('[data-edit]').onclick = () => {
-  sel = l; // ✅ on sélectionne le bon objet sans cliquer la carte
 
+// bouton éditer
+tr.querySelectorAll('button')[0].onclick = () => {
+  sel = l;
   nom.value = p.nom || '';
   montant.value = p.montant || '';
   montant_decaisse.value = p.montant_decaisse || '';
@@ -265,41 +273,26 @@ tr.querySelector('[data-edit]').onclick = () => {
   responsable.value = p.responsable || '';
   taux_execution.value = p.taux_execution || '';
 };
+
+// bouton supprimer
+tr.querySelectorAll('button')[1].onclick = () => {
+  if(!confirm("Supprimer ce projet ?")) return;
+
+  // supprime l’objet de la carte
+  allItems.removeLayer(l);
+  if (sel === l) sel = null;
+
+  // refresh
+  buildFilterOptions();
+  applyFilters();
+
+  // sauvegarde si tu utilises local
+  // autoSaveIfAllowed();
+
+  alert("Projet supprimé ✅");
+};
+
 tb.appendChild(tr);
-
-  });
-  const td=total>0?dec/total:0, te=total>0?wx/total:0;
-  document.getElementById('sum-total').textContent=money(total);
-  document.getElementById('sum-decaisse').textContent=money(dec);
-  document.getElementById('sum-taux-dec').textContent=pct(td);
-  document.getElementById('sum-taux-exec').textContent=(Math.round(te*10)/10)+'%';
-
-  buildLegend(Array.from(statuses).filter(Boolean).sort());
-  buildGroupedTable(rows, 'statut', 'tblStatut');
-  buildGroupedTable(rows, 'region', 'tblRegion');
-}
-
-function buildLegend(values){
-  const cont=document.getElementById('legend'), items=document.getElementById('legendItems');
-  items.innerHTML=''; if(!values.length){cont.style.display='none';return;}
-  values.forEach(v=>{const c=colorForStatut(v); const div=document.createElement('div'); div.className='item'; div.innerHTML=`<span class="sw" style="background:${c}"></span><span>${v}</span>`; items.appendChild(div);});
-  cont.style.display='block';
-}
-
-function buildGroupedTable(rows, key, tableId){
-  const by={};
-  rows.forEach(r=>{
-    const k=r[key]||'(vide)';
-    if(!by[k]) by[k]={nb:0,m:0,d:0,wx:0};
-    by[k].nb+=1; by[k].m+=r.montant; by[k].d+=r.decaisse; by[k].wx+=r.tauxExec*r.montant;
-  });
-  const tbody=document.querySelector('#'+tableId+' tbody');
-  tbody.innerHTML='';
-  Object.keys(by).sort((a,b)=>(''+a).localeCompare(b,'fr')).forEach(k=>{
-    const o=by[k], td=o.m>0?o.d/o.m:0, te=o.m>0?o.wx/o.m:0;
-    const tr=document.createElement('tr');
-    tr.innerHTML=`<td>${k}</td><td>${o.nb}</td><td>${money(o.m)}</td><td>${money(o.d)}</td><td>${pct(td)}</td><td>${(Math.round(te*10)/10)}%</td>`;
-    tbody.appendChild(tr);
   });
 }
 
