@@ -28,6 +28,7 @@
 <div id="layout">
   <div id="side">
     <h3>Gestion & Suivi de Projets</h3>
+<div style="padding:6px 10px;margin:6px 0 12px;border:1px solid #ccc;border-radius:8px;background:#fff;font-size:12px"><b>VERSION_BUILD_ICONES</b> — si vous voyez ce texte, c’est le bon fichier.</div>
 
     <!-- Filtres -->
     <div class="card">
@@ -451,24 +452,10 @@ document.getElementById('gh-save').onclick=async()=>{
 };
 
 // ===== Démarrage (sûr) : GitHub -> local -> intégré =====
-(async function start(){
-  // reset filtres (évite écran vide si le navigateur mémorise une sélection)
-  try{ fStatut.value=''; fRegion.value=''; }catch(e){}
-  try{
-    const j=await loadFromGitHub();
-    if(j && Array.isArray(j.features) && j.features.length>0){
-      renderGeoJSON(j);
-      return;
-    }
-    throw new Error('GitHub vide');
-  }catch(e){
-    const saved=loadLocalAny();
-    if(saved && Array.isArray(saved.features) && saved.features.length>0){
-      renderGeoJSON(saved);
-    } else {
-      renderGeoJSON(INITIAL_DATA);
-    }
-  }
+(function start(){
+  // Démarrage garanti : charge d'abord les données intégrées
+  try{ renderGeoJSON(INITIAL_DATA); }catch(e){}
+  // Ensuite, si GitHub est configuré, l'utilisateur peut cliquer "Charger (GitHub)"
 })();
 </script>
 </body>
