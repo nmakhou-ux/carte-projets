@@ -32,21 +32,6 @@
     <!-- Filtres -->
     <div class="card">
       <b>Filtres</b>
-
-      <div class="row">
-        <div>
-          <label>Icône (optionnel)</label>
-          <select id="icone" style="width:100%">
-            <option value="">● Point normal</option>
-            <option value="📍">📍 Projet</option>
-            <option value="🏥">🏥 Santé</option>
-            <option value="🏫">🏫 Éducation</option>
-            <option value="⚡">⚡ Énergie</option>
-            <option value="🛣️">🛣️ Route</option>
-            <option value="🏗️">🏗️ Bâtiment</option>
-          </select>
-        </div>
-      </div>
       <div class="row" style="margin-top:6px">
         <div>
           <label>Statut</label>
@@ -82,6 +67,21 @@
         <div><label>Responsable</label><input id="responsable" style="width:100%"></div>
         <div><label>Taux exéc. (%)</label><input id="taux_execution" style="width:100%"></div>
       </div>
+      <div class="row">
+        <div>
+          <label>Icône (optionnel)</label>
+          <select id="icone" style="width:100%">
+            <option value="">● Point normal</option>
+            <option value="📍">📍 Projet</option>
+            <option value="🏥">🏥 Santé</option>
+            <option value="🏫">🏫 Éducation</option>
+            <option value="⚡">⚡ Énergie</option>
+            <option value="🛣️">🛣️ Route</option>
+            <option value="🏗️">🏗️ Bâtiment</option>
+          </select>
+        </div>
+      </div>
+
       <div class="row" style="margin-top:6px">
         <button class="btn" id="apply">Associer au dessin sélectionné</button>
         <button class="btn" id="clear">Effacer</button>
@@ -192,7 +192,7 @@ function toNum(v){if(v==null||v==='')return 0;const t=(''+v).replace(/\s/g,'').r
 function popupHtml(p){const mt=toNum(p.montant),md=toNum(p.montant_decaisse),td=mt>0?md/mt:0;
   return `<b>${p.nom||'Projet'}</b><br><i>Région:</i> ${p.region||''}<br><i>Statut:</i> ${p.statut||''}<br>
   <i>Montant:</i> ${p.montant||''}<br><i>Décaissé:</i> ${p.montant_decaisse||''} (${pct(td)})<br>
-  <i>Resp.:</i> ${p.responsable||''}<br><i>Taux exéc.:</i> ${p.taux_execution? p.taux_execution+'%' : ''}` + (p.icone?`<br><i>Icône:</i> ${p.icone}`:'');}
+  <i>Resp.:</i> ${p.responsable||''}<br><i>Taux exéc.:</i> ${p.taux_execution? p.taux_execution+'%' : ''}`;}
 function bindUI(l,p){l.bindTooltip(p.nom||'Projet'); l.bindPopup(popupHtml(p),{maxWidth:420});}
 function applyStyle(l,props){
   const color=colorForStatut(props.statut||'');
@@ -219,11 +219,13 @@ function applyEmojiIcon(layer, props){
     iconAnchor: [11, 11]
   });
 
+  // Si c'est déjà un Marker, on met l'icône
   if (layer instanceof L.Marker){
     layer.setIcon(icon);
     return layer;
   }
 
+  // Sinon (circleMarker), on remplace par un Marker emoji
   const m = L.marker(latlng, { icon });
   m.feature = layer.feature;
 
@@ -234,6 +236,7 @@ function applyEmojiIcon(layer, props){
   allItems.addLayer(m);
   return m;
 }
+
 function setProps(l,props){
   const f=toFeature(l);
   f.properties=Object.assign({},f.properties||{},props);
@@ -331,6 +334,7 @@ tr.querySelectorAll('button')[1].onclick = () => {
 
   // refresh
   buildFilterOptions();
+  try{ fStatut.value=''; fRegion.value=''; }catch(e){}
   applyFilters();
 
   // sauvegarde si tu utilises local
@@ -448,14 +452,22 @@ document.getElementById('gh-save').onclick=async()=>{
 
 // ===== Démarrage (sûr) : GitHub -> local -> intégré =====
 (async function start(){
+  // reset filtres (évite écran vide si le navigateur mémorise une sélection)
+  try{ fStatut.value=''; fRegion.value=''; }catch(e){}
   try{
     const j=await loadFromGitHub();
-    renderGeoJSON(j);
-    // pas d'écriture automatique ici
+    if(j && Array.isArray(j.features) && j.features.length>0){
+      renderGeoJSON(j);
+      return;
+    }
+    throw new Error('GitHub vide');
   }catch(e){
     const saved=loadLocalAny();
-    if(saved) renderGeoJSON(saved);
-    else      renderGeoJSON(INITIAL_DATA);
+    if(saved && Array.isArray(saved.features) && saved.features.length>0){
+      renderGeoJSON(saved);
+    } else {
+      renderGeoJSON(INITIAL_DATA);
+    }
   }
 })();
 </script>
