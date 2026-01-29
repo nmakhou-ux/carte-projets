@@ -32,6 +32,21 @@
     <!-- Filtres -->
     <div class="card">
       <b>Filtres</b>
+
+      <div class="row">
+        <div>
+          <label>Icône (optionnel)</label>
+          <select id="icone" style="width:100%">
+            <option value="">● Point normal</option>
+            <option value="📍">📍 Projet</option>
+            <option value="🏥">🏥 Santé</option>
+            <option value="🏫">🏫 Éducation</option>
+            <option value="⚡">⚡ Énergie</option>
+            <option value="🛣️">🛣️ Route</option>
+            <option value="🏗️">🏗️ Bâtiment</option>
+          </select>
+        </div>
+      </div>
       <div class="row" style="margin-top:6px">
         <div>
           <label>Statut</label>
@@ -177,7 +192,7 @@ function toNum(v){if(v==null||v==='')return 0;const t=(''+v).replace(/\s/g,'').r
 function popupHtml(p){const mt=toNum(p.montant),md=toNum(p.montant_decaisse),td=mt>0?md/mt:0;
   return `<b>${p.nom||'Projet'}</b><br><i>Région:</i> ${p.region||''}<br><i>Statut:</i> ${p.statut||''}<br>
   <i>Montant:</i> ${p.montant||''}<br><i>Décaissé:</i> ${p.montant_decaisse||''} (${pct(td)})<br>
-  <i>Resp.:</i> ${p.responsable||''}<br><i>Taux exéc.:</i> ${p.taux_execution? p.taux_execution+'%' : ''}`;}
+  <i>Resp.:</i> ${p.responsable||''}<br><i>Taux exéc.:</i> ${p.taux_execution? p.taux_execution+'%' : ''}` + (p.icone?`<br><i>Icône:</i> ${p.icone}`:'');}
 function bindUI(l,p){l.bindTooltip(p.nom||'Projet'); l.bindPopup(popupHtml(p),{maxWidth:420});}
 function applyStyle(l,props){
   const color=colorForStatut(props.statut||'');
@@ -189,15 +204,46 @@ function applyStyle(l,props){
   if(l.setStyle) l.setStyle({color,weight:2,fillOpacity:0.35});
   return l;
 }
-function setProps(l,props){const f=toFeature(l); f.properties=Object.assign({},f.properties||{},props); l.feature=f; bindUI(l,f.properties); return applyStyle(l,f.properties);}
 
-// ===== Sauvegarde locale (manuelle, avec migration) =====
-const STORAGE_KEYS = ['projets_geojson_v3','projets_geojson_v2','projets_geojson_static_v1'];
-let allowAutoSave = false; // rien n'est écrit tant que tu n'as pas cliqué Sauvegarder/Charger
+function applyEmojiIcon(layer, props){
+  const emoji = (props && props.icone) ? props.icone : '';
+  if (!emoji) return layer;
 
-function collectFC(){
-  const feats=[]; allItems.eachLayer(l=>feats.push(toFeature(l)));
-  return {type:'FeatureCollection', features:feats};
+  const latlng = layer.getLatLng ? layer.getLatLng() : null;
+  if (!latlng) return layer;
+
+  const icon = L.divIcon({
+    className: '',
+    html: `<div style="font-size:22px;line-height:22px">${emoji}</div>`,
+    iconSize: [22, 22],
+    iconAnchor: [11, 11]
+  });
+
+  if (layer instanceof L.Marker){
+    layer.setIcon(icon);
+    return layer;
+  }
+
+  const m = L.marker(latlng, { icon });
+  m.feature = layer.feature;
+
+  if (layer._popup) m.bindPopup(layer._popup.getContent());
+  if (layer._tooltip) m.bindTooltip(layer._tooltip._content);
+
+  allItems.removeLayer(layer);
+  allItems.addLayer(m);
+  return m;
+}
+function setProps(l,props){
+  const f=toFeature(l);
+  f.properties=Object.assign({},f.properties||{},props);
+  l.feature=f;
+  bindUI(l,f.properties);
+
+  const styled = applyStyle(l,f.properties);
+  const finalLayer = applyEmojiIcon(styled, f.properties);
+  sel = finalLayer;
+  return finalLayer;
 }
 function saveLocal(){
   try{ localStorage.setItem(STORAGE_KEYS[0], JSON.stringify(collectFC())); alert('Données sauvegardées en local ✔'); allowAutoSave=true; }
@@ -272,6 +318,7 @@ tr.querySelectorAll('button')[0].onclick = () => {
   statut.value = p.statut || 'Planifié';
   responsable.value = p.responsable || '';
   taux_execution.value = p.taux_execution || '';
+  if(document.getElementById('icone')) document.getElementById('icone').value = p.icone || '';
 };
 
 // bouton supprimer
@@ -333,10 +380,12 @@ map.on(L.Draw.Event.DELETED, ()=>{sel=null; buildFilterOptions(); applyFilters()
 document.getElementById('apply').onclick=()=>{
   if(!sel){alert('Sélectionnez un objet.'); return;}
   let l=sel;
-  const p={nom:nom.value.trim(),montant:montant.value.trim(),montant_decaisse:montant_decaisse.value.trim(),region:region.value.trim(),statut:statut.value,responsable:responsable.value.trim(),taux_execution:(()=>{const v=parseFloat(taux_execution.value.replace(',','.'));return isFinite(v)?String(v):'';})()};
+  const p={nom:nom.value.trim(),montant:montant.value.trim(),montant_decaisse:montant_decaisse.value.trim(),region:region.value.trim(),statut:statut.value,responsable:responsable.value.trim(),taux_execution:(()=>{const v=parseFloat(taux_execution.value.replace(',','.'));return isFinite(v)?String(v):'';})(),
+    icone:(document.getElementById('icone')?document.getElementById('icone').value:'')
+  };
   l=setProps(l,p); sel=l; buildFilterOptions(); applyFilters(); autoSaveIfAllowed();
 };
-document.getElementById('clear').onclick=()=>{['nom','montant','montant_decaisse','region','responsable','taux_execution'].forEach(id=>document.getElementById(id).value=''); statut.value='Planifié';};
+document.getElementById('clear').onclick=()=>{['nom','montant','montant_decaisse','region','responsable','taux_execution','icone'].forEach(id=>document.getElementById(id).value=''); statut.value='Planifié';};
 
 // Import / Export / Local
 document.getElementById('export').onclick=()=>{
