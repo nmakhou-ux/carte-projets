@@ -67,21 +67,6 @@
         <div><label>Responsable</label><input id="responsable" style="width:100%"></div>
         <div><label>Taux exéc. (%)</label><input id="taux_execution" style="width:100%"></div>
       </div>
-      <div class="row">
-        <div>
-          <label>Icône (optionnel)</label>
-          <select id="icone" style="width:100%">
-            <option value="">● Point normal</option>
-            <option value="📍">📍 Projet</option>
-            <option value="🏥">🏥 Santé</option>
-            <option value="🏫">🏫 Éducation</option>
-            <option value="⚡">⚡ Énergie</option>
-            <option value="🛣️">🛣️ Route</option>
-            <option value="🏗️">🏗️ Bâtiment</option>
-          </select>
-        </div>
-      </div>
-
       <div class="row" style="margin-top:6px">
         <button class="btn" id="apply">Associer au dessin sélectionné</button>
         <button class="btn" id="clear">Effacer</button>
@@ -204,49 +189,15 @@ function applyStyle(l,props){
   if(l.setStyle) l.setStyle({color,weight:2,fillOpacity:0.35});
   return l;
 }
+function setProps(l,props){const f=toFeature(l); f.properties=Object.assign({},f.properties||{},props); l.feature=f; bindUI(l,f.properties); return applyStyle(l,f.properties);}
 
-function applyEmojiIcon(layer, props){
-  const emoji = (props && props.icone) ? props.icone : '';
-  if (!emoji) return layer;
+// ===== Sauvegarde locale (manuelle, avec migration) =====
+const STORAGE_KEYS = ['projets_geojson_v3','projets_geojson_v2','projets_geojson_static_v1'];
+let allowAutoSave = false; // rien n'est écrit tant que tu n'as pas cliqué Sauvegarder/Charger
 
-  const latlng = layer.getLatLng ? layer.getLatLng() : null;
-  if (!latlng) return layer;
-
-  const icon = L.divIcon({
-    className: '',
-    html: `<div style="font-size:22px;line-height:22px">${emoji}</div>`,
-    iconSize: [22, 22],
-    iconAnchor: [11, 11]
-  });
-
-  // Si c'est déjà un Marker, on met l'icône
-  if (layer instanceof L.Marker){
-    layer.setIcon(icon);
-    return layer;
-  }
-
-  // Sinon (circleMarker), on remplace par un Marker emoji
-  const m = L.marker(latlng, { icon });
-  m.feature = layer.feature;
-
-  if (layer._popup) m.bindPopup(layer._popup.getContent());
-  if (layer._tooltip) m.bindTooltip(layer._tooltip._content);
-
-  allItems.removeLayer(layer);
-  allItems.addLayer(m);
-  return m;
-}
-
-function setProps(l,props){
-  const f=toFeature(l);
-  f.properties=Object.assign({},f.properties||{},props);
-  l.feature=f;
-  bindUI(l,f.properties);
-
-  const styled = applyStyle(l,f.properties);
-  const finalLayer = applyEmojiIcon(styled, f.properties);
-  sel = finalLayer;
-  return finalLayer;
+function collectFC(){
+  const feats=[]; allItems.eachLayer(l=>feats.push(toFeature(l)));
+  return {type:'FeatureCollection', features:feats};
 }
 function saveLocal(){
   try{ localStorage.setItem(STORAGE_KEYS[0], JSON.stringify(collectFC())); alert('Données sauvegardées en local ✔'); allowAutoSave=true; }
@@ -321,7 +272,6 @@ tr.querySelectorAll('button')[0].onclick = () => {
   statut.value = p.statut || 'Planifié';
   responsable.value = p.responsable || '';
   taux_execution.value = p.taux_execution || '';
-  if(document.getElementById('icone')) document.getElementById('icone').value = p.icone || '';
 };
 
 // bouton supprimer
@@ -334,7 +284,6 @@ tr.querySelectorAll('button')[1].onclick = () => {
 
   // refresh
   buildFilterOptions();
-  try{ fStatut.value=''; fRegion.value=''; }catch(e){}
   applyFilters();
 
   // sauvegarde si tu utilises local
@@ -384,12 +333,10 @@ map.on(L.Draw.Event.DELETED, ()=>{sel=null; buildFilterOptions(); applyFilters()
 document.getElementById('apply').onclick=()=>{
   if(!sel){alert('Sélectionnez un objet.'); return;}
   let l=sel;
-  const p={nom:nom.value.trim(),montant:montant.value.trim(),montant_decaisse:montant_decaisse.value.trim(),region:region.value.trim(),statut:statut.value,responsable:responsable.value.trim(),taux_execution:(()=>{const v=parseFloat(taux_execution.value.replace(',','.'));return isFinite(v)?String(v):'';})(),
-    icone:(document.getElementById('icone')?document.getElementById('icone').value:'')
-  };
+  const p={nom:nom.value.trim(),montant:montant.value.trim(),montant_decaisse:montant_decaisse.value.trim(),region:region.value.trim(),statut:statut.value,responsable:responsable.value.trim(),taux_execution:(()=>{const v=parseFloat(taux_execution.value.replace(',','.'));return isFinite(v)?String(v):'';})()};
   l=setProps(l,p); sel=l; buildFilterOptions(); applyFilters(); autoSaveIfAllowed();
 };
-document.getElementById('clear').onclick=()=>{['nom','montant','montant_decaisse','region','responsable','taux_execution','icone'].forEach(id=>document.getElementById(id).value=''); statut.value='Planifié';};
+document.getElementById('clear').onclick=()=>{['nom','montant','montant_decaisse','region','responsable','taux_execution'].forEach(id=>document.getElementById(id).value=''); statut.value='Planifié';};
 
 // Import / Export / Local
 document.getElementById('export').onclick=()=>{
@@ -452,22 +399,14 @@ document.getElementById('gh-save').onclick=async()=>{
 
 // ===== Démarrage (sûr) : GitHub -> local -> intégré =====
 (async function start(){
-  // reset filtres (évite écran vide si le navigateur mémorise une sélection)
-  try{ fStatut.value=''; fRegion.value=''; }catch(e){}
   try{
     const j=await loadFromGitHub();
-    if(j && Array.isArray(j.features) && j.features.length>0){
-      renderGeoJSON(j);
-      return;
-    }
-    throw new Error('GitHub vide');
+    renderGeoJSON(j);
+    // pas d'écriture automatique ici
   }catch(e){
     const saved=loadLocalAny();
-    if(saved && Array.isArray(saved.features) && saved.features.length>0){
-      renderGeoJSON(saved);
-    } else {
-      renderGeoJSON(INITIAL_DATA);
-    }
+    if(saved) renderGeoJSON(saved);
+    else      renderGeoJSON(INITIAL_DATA);
   }
 })();
 </script>
