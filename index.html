@@ -450,12 +450,17 @@ document.getElementById('gh-save').onclick=async()=>{
 (async function start(){
   try{
     const j=await loadFromGitHub();
+    if(!j || !Array.isArray(j.features) || j.features.length===0){
+      throw new Error('Aucune donnée GitHub');
+    }
     renderGeoJSON(j);
-    // pas d'écriture automatique ici
   }catch(e){
     const saved=loadLocalAny();
-    if(saved) renderGeoJSON(saved);
-    else      renderGeoJSON(INITIAL_DATA);
+    if(saved && Array.isArray(saved.features) && saved.features.length){
+      renderGeoJSON(saved);
+    } else {
+      renderGeoJSON(INITIAL_DATA);
+    }
   }
 })();
 </script>
