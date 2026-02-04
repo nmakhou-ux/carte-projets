@@ -6,7 +6,16 @@
 <title>Carte Projets — filtres + synthèses + synchro GitHub</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css" />
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js">
+function safeAutoSaveLocal(){
+  try{
+    if (typeof collectFC === 'function'){
+      localStorage.setItem('projets_geojson_autosave', JSON.stringify(collectFC()));
+    }
+  }catch(e){}
+}
+
+</script>
 <script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
 <style>
   html,body{height:100%;margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial}
@@ -289,15 +298,17 @@ function matchFilter(p){
 }
 
 // ===== Tableaux & synthèses (sur VISIBLE = filtré) =====
+
 function refreshAllSummaries(){
   const tb = document.getElementById('tbl');
+  if (!tb) return;
   tb.innerHTML = '';
 
   let total = 0, dec = 0, wx = 0;
-  const rows = []; // pour regroupements
+  const rows = [];
 
   allItems.eachLayer(l=>{
-    if(!map.hasLayer(l)) return; // seulement les projets visibles (filtrés)
+    if(!map.hasLayer(l)) return;
 
     const p = (l.feature && l.feature.properties) || {};
     const m = toNum(p.montant);
@@ -311,57 +322,69 @@ function refreshAllSummaries(){
 
     rows.push({ statut: p.statut||'(vide)', region: p.region||'(vide)', montant: m, decaisse: d, tauxExec: (isFinite(te)?te:0) });
 
-    // ---- ligne tableau (Éditer + DEL) ----
     const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td><button class="btn" style="padding:4px 8px">Éditer</button></td>
-      <td><button class="btn warn" style="padding:4px 8px">DEL</button></td>
-      <td>${p.nom||''}</td><td>${p.region||''}</td><td>${p.statut||''}</td>
-      <td>${p.montant||''}</td><td>${p.montant_decaisse||''}</td><td>${pct(t)}</td>
-      <td>${p.taux_execution? p.taux_execution+'%' : ''}</td><td>${p.responsable||''}</td>
-    `;
 
-    // Éditer
-    tr.querySelectorAll('button')[0].onclick = () => {
-      sel = l;
-      nom.value = p.nom || '';
-      montant.value = p.montant || '';
-      montant_decaisse.value = p.montant_decaisse || '';
-      region.value = p.region || '';
-      statut.value = p.statut || 'Planifié';
-      responsable.value = p.responsable || '';
-      taux_execution.value = p.taux_execution || '';
-      if(document.getElementById('icone')) document.getElementById('icone').value = p.icone || '';
-    };
+    // Table avec boutons Éditer/DEL ?
+    const thCount = document.querySelectorAll('#side table thead th').length;
+    const hasEditDelCols = thCount >= 10;
 
-    // Supprimer
-    tr.querySelectorAll('button')[1].onclick = () => {
-      if(!confirm("Supprimer ce projet ?")) return;
-      allItems.removeLayer(l);
-      if (sel === l) sel = null;
-      buildFilterOptions();
-      applyFilters();
-      alert("Projet supprimé ✅");
-    };
+    if (hasEditDelCols){
+      tr.innerHTML = `
+        <td><button class="btn" style="padding:4px 8px">Éditer</button></td>
+        <td><button class="btn warn" style="padding:4px 8px">DEL</button></td>
+        <td>${p.nom||''}</td><td>${p.region||''}</td><td>${p.statut||''}</td>
+        <td>${p.montant||''}</td><td>${p.montant_decaisse||''}</td><td>${pct(t)}</td>
+        <td>${p.taux_execution? p.taux_execution+'%' : ''}</td><td>${p.responsable||''}</td>
+      `;
+      tr.querySelectorAll('button')[0].onclick = () => {
+        sel = l;
+        nom.value = p.nom || '';
+        montant.value = p.montant || '';
+        montant_decaisse.value = p.montant_decaisse || '';
+        region.value = p.region || '';
+        statut.value = p.statut || 'Planifié';
+        responsable.value = p.responsable || '';
+        taux_execution.value = p.taux_execution || '';
+        if (document.getElementById('icone')) document.getElementById('icone').value = p.icone || '';
+      };
+      tr.querySelectorAll('button')[1].onclick = () => {
+        if(!confirm("Supprimer ce projet ?")) return;
+        allItems.removeLayer(l);
+        if (sel === l) sel = null;
+        buildFilterOptions();
+        applyFilters();
+        safeAutoSaveLocal();
+      };
+    } else {
+      tr.innerHTML = `
+        <td>${p.nom||''}</td><td>${p.region||''}</td><td>${p.statut||''}</td>
+        <td>${p.montant||''}</td><td>${p.montant_decaisse||''}</td><td>${pct(t)}</td>
+        <td>${p.taux_execution? p.taux_execution+'%' : ''}</td><td>${p.responsable||''}</td>
+      `;
+    }
 
     tb.appendChild(tr);
   });
 
-  // ---- Synthèse globale ----
   const td = total>0 ? dec/total : 0;
   const te = total>0 ? wx/total : 0;
 
-  document.getElementById('sum-total').textContent = money(total);
-  document.getElementById('sum-decaisse').textContent = money(dec);
-  document.getElementById('sum-taux-dec').textContent = pct(td);
-  document.getElementById('sum-taux-exec').textContent = (Math.round(te*10)/10) + '%';
+  if (document.getElementById('sum-total')){
+    document.getElementById('sum-total').textContent = money(total);
+    document.getElementById('sum-decaisse').textContent = money(dec);
+    document.getElementById('sum-taux-dec').textContent = pct(td);
+    document.getElementById('sum-taux-exec').textContent = (Math.round(te*10)/10) + '%';
+  }
 
-  // ---- Synthèse par Statut / Région (filtrée) ----
   fillGroupedTable(rows, 'statut', 'tblStatut');
   fillGroupedTable(rows, 'region', 'tblRegion');
 }
 
 function fillGroupedTable(rows, key, tableId){
+  const tbody = document.querySelector('#'+tableId+' tbody');
+  if(!tbody) return;
+  tbody.innerHTML = '';
+
   const by = {};
   rows.forEach(r=>{
     const k = r[key] || '(vide)';
@@ -371,10 +394,6 @@ function fillGroupedTable(rows, key, tableId){
     by[k].d  += r.decaisse;
     by[k].wx += r.tauxExec * r.montant;
   });
-
-  const tbody = document.querySelector('#'+tableId+' tbody');
-  if(!tbody) return;
-  tbody.innerHTML = '';
 
   Object.keys(by).sort((a,b)=>(''+a).localeCompare(b,'fr')).forEach(k=>{
     const o = by[k];
@@ -492,9 +511,15 @@ document.getElementById('gh-save').onclick=async()=>{
 
 // ===== Démarrage (sûr) : GitHub -> local -> intégré =====
 (function start(){
-  // Démarrage garanti : charge d'abord les données intégrées
+  // Démarrage : affiche d'abord la sauvegarde locale si elle existe (sinon données intégrées)
+  try{
+    const t = localStorage.getItem('projets_geojson_autosave');
+    if(t){
+      const j = JSON.parse(t);
+      if(j && j.features && j.features.length){ renderGeoJSON(j); return; }
+    }
+  }catch(e){}
   try{ renderGeoJSON(INITIAL_DATA); }catch(e){}
-  // Ensuite, si GitHub est configuré, l'utilisateur peut cliquer "Charger (GitHub)"
 })();
 
 // ✅ Remplir le formulaire en cliquant sur un point / forme (comme avant)
@@ -511,7 +536,6 @@ allItems.on('click', function(e){
   taux_execution.value = p.taux_execution || '';
   if (document.getElementById('icone')) document.getElementById('icone').value = p.icone || '';
 });
-
 </script>
 </body>
 </html>
