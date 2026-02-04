@@ -290,99 +290,61 @@ function matchFilter(p){
 
 // ===== Tableaux & synthèses (sur VISIBLE = filtré) =====
 function refreshAllSummaries(){
-  const tb = document.getElementById('tbl');
-  tb.innerHTML = '';
-
-  let total = 0, dec = 0, wx = 0;
-  const rows = []; // pour regroupements
-
+  const tb=document.getElementById('tbl'); tb.innerHTML='';
+  let total=0,dec=0,wx=0; const statuses=new Set();
+  const rows=[];
   allItems.eachLayer(l=>{
-    if(!map.hasLayer(l)) return; // seulement les projets visibles (filtrés)
+    if(!map.hasLayer(l)) return;
+    const p=(l.feature&&l.feature.properties)||{};
+    const m=toNum(p.montant), d=toNum(p.montant_decaisse), t=m>0?d/m:0, te=toNum(p.taux_execution);
+    total+=m; dec+=d; wx+=(isFinite(te)?te:0)*m; if(p.statut) statuses.add(p.statut);
+    rows.push({statut:p.statut||'', region:p.region||'', montant:m, decaisse:d, tauxExec:isFinite(te)?te:0});
 
-    const p = (l.feature && l.feature.properties) || {};
-    const m = toNum(p.montant);
-    const d = toNum(p.montant_decaisse);
-    const t = m>0 ? d/m : 0;
-    const te = toNum(p.taux_execution);
+  
 
-    total += m;
-    dec   += d;
-    wx    += (isFinite(te)?te:0) * m;
+const tr = document.createElement('tr');
+tr.innerHTML = `
+  <td><button class="btn" style="padding:4px 8px">Éditer</button></td>
+  <td><button class="btn warn" style="padding:4px 8px">DEL</button></td>
 
-    rows.push({ statut: p.statut||'(vide)', region: p.region||'(vide)', montant: m, decaisse: d, tauxExec: (isFinite(te)?te:0) });
+  <td>${p.nom||''}</td><td>${p.region||''}</td><td>${p.statut||''}</td>
+  <td>${p.montant||''}</td><td>${p.montant_decaisse||''}</td><td>${pct(t)}</td>
+  <td>${p.taux_execution? p.taux_execution+'%' : ''}</td><td>${p.responsable||''}</td>
+`;
 
-    // ---- ligne tableau (Éditer + DEL) ----
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td><button class="btn" style="padding:4px 8px">Éditer</button></td>
-      <td><button class="btn warn" style="padding:4px 8px">DEL</button></td>
-      <td>${p.nom||''}</td><td>${p.region||''}</td><td>${p.statut||''}</td>
-      <td>${p.montant||''}</td><td>${p.montant_decaisse||''}</td><td>${pct(t)}</td>
-      <td>${p.taux_execution? p.taux_execution+'%' : ''}</td><td>${p.responsable||''}</td>
-    `;
+// bouton éditer
+tr.querySelectorAll('button')[0].onclick = () => {
+  sel = l;
+  nom.value = p.nom || '';
+  montant.value = p.montant || '';
+  montant_decaisse.value = p.montant_decaisse || '';
+  region.value = p.region || '';
+  statut.value = p.statut || 'Planifié';
+  responsable.value = p.responsable || '';
+  taux_execution.value = p.taux_execution || '';
+  if(document.getElementById('icone')) document.getElementById('icone').value = p.icone || '';
+};
 
-    // Éditer
-    tr.querySelectorAll('button')[0].onclick = () => {
-      sel = l;
-      nom.value = p.nom || '';
-      montant.value = p.montant || '';
-      montant_decaisse.value = p.montant_decaisse || '';
-      region.value = p.region || '';
-      statut.value = p.statut || 'Planifié';
-      responsable.value = p.responsable || '';
-      taux_execution.value = p.taux_execution || '';
-      if(document.getElementById('icone')) document.getElementById('icone').value = p.icone || '';
-    };
+// bouton supprimer
+tr.querySelectorAll('button')[1].onclick = () => {
+  if(!confirm("Supprimer ce projet ?")) return;
 
-    // Supprimer
-    tr.querySelectorAll('button')[1].onclick = () => {
-      if(!confirm("Supprimer ce projet ?")) return;
-      allItems.removeLayer(l);
-      if (sel === l) sel = null;
-      buildFilterOptions();
-      applyFilters();
-      alert("Projet supprimé ✅");
-    };
+  // supprime l’objet de la carte
+  allItems.removeLayer(l);
+  if (sel === l) sel = null;
 
-    tb.appendChild(tr);
-  });
+  // refresh
+  buildFilterOptions();
+  try{ fStatut.value=''; fRegion.value=''; }catch(e){}
+  applyFilters();
 
-  // ---- Synthèse globale ----
-  const td = total>0 ? dec/total : 0;
-  const te = total>0 ? wx/total : 0;
+  // sauvegarde si tu utilises local
+  // autoSaveIfAllowed();
 
-  document.getElementById('sum-total').textContent = money(total);
-  document.getElementById('sum-decaisse').textContent = money(dec);
-  document.getElementById('sum-taux-dec').textContent = pct(td);
-  document.getElementById('sum-taux-exec').textContent = (Math.round(te*10)/10) + '%';
+  alert("Projet supprimé ✅");
+};
 
-  // ---- Synthèse par Statut / Région (filtrée) ----
-  fillGroupedTable(rows, 'statut', 'tblStatut');
-  fillGroupedTable(rows, 'region', 'tblRegion');
-}
-
-function fillGroupedTable(rows, key, tableId){
-  const by = {};
-  rows.forEach(r=>{
-    const k = r[key] || '(vide)';
-    if(!by[k]) by[k] = { nb:0, m:0, d:0, wx:0 };
-    by[k].nb += 1;
-    by[k].m  += r.montant;
-    by[k].d  += r.decaisse;
-    by[k].wx += r.tauxExec * r.montant;
-  });
-
-  const tbody = document.querySelector('#'+tableId+' tbody');
-  if(!tbody) return;
-  tbody.innerHTML = '';
-
-  Object.keys(by).sort((a,b)=>(''+a).localeCompare(b,'fr')).forEach(k=>{
-    const o = by[k];
-    const td = o.m>0 ? o.d/o.m : 0;
-    const te = o.m>0 ? o.wx/o.m : 0;
-    const tr = document.createElement('tr');
-    tr.innerHTML = `<td>${k}</td><td>${o.nb}</td><td>${money(o.m)}</td><td>${money(o.d)}</td><td>${pct(td)}</td><td>${(Math.round(te*10)/10)}%</td>`;
-    tbody.appendChild(tr);
+tb.appendChild(tr);
   });
 }
 
@@ -496,10 +458,20 @@ document.getElementById('gh-save').onclick=async()=>{
   // Ensuite, si GitHub est configuré, l'utilisateur peut cliquer "Charger (GitHub)"
 })();
 
+// ✅ Remplir le formulaire en cliquant sur un point / forme (comme avant)
+allItems.on('click', function(e){
+  sel = e.layer;
+  const p = (sel.feature && sel.feature.properties) || {};
 
-
-
-
+  nom.value = p.nom || '';
+  montant.value = p.montant || '';
+  montant_decaisse.value = p.montant_decaisse || '';
+  region.value = p.region || '';
+  statut.value = p.statut || 'Planifié';
+  responsable.value = p.responsable || '';
+  taux_execution.value = p.taux_execution || '';
+  if (document.getElementById('icone')) document.getElementById('icone').value = p.icone || '';
+});
 </script>
 </body>
 </html>
