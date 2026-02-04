@@ -496,19 +496,6 @@ document.getElementById('gh-save').onclick=async()=>{
   // Ensuite, si GitHub est configuré, l'utilisateur peut cliquer "Charger (GitHub)"
 })();
 
-// ✅ Remplir le formulaire en cliquant sur un point / forme (comme avant)
-allItems.on('click', function(e){
-  sel = e.layer;
-  const p = (sel.feature && sel.feature.properties) || {};
-
-  nom.value = p.nom || '';
-  montant.value = p.montant || '';
-  montant_decaisse.value = p.montant_decaisse || '';
-  region.value = p.region || '';
-  statut.value = p.statut || 'Planifié';
-  responsable.value = p.responsable || '';
-  taux_execution.value = p.taux_execution || '';
-  if (document.getElementById('icone')) document.getElementById('icone').value = p.icone || '';
 
 
 
