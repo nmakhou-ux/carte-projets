@@ -217,26 +217,6 @@
     {
       "type": "Feature",
       "properties": {
-        "nom": "extension projet TER",
-        "montant": "2200000000000",
-        "montant_decaisse": "120000000000",
-        "region": "Dakar",
-        "statut": "Planifié",
-        "responsable": "",
-        "taux_execution": "90",
-        "icone": ""
-      },
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          -17.447662,
-          14.740355
-        ]
-      }
-    },
-    {
-      "type": "Feature",
-      "properties": {
         "nom": "université senegal oriental",
         "montant": "105000000000",
         "montant_decaisse": "90000000000",
@@ -271,6 +251,26 @@
         "coordinates": [
           -16.817322,
           14.926208
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "nom": "extension projet TER",
+        "montant": "2200000000000",
+        "montant_decaisse": "120000000000",
+        "region": "Dakar",
+        "statut": "Planifié",
+        "responsable": "",
+        "taux_execution": "90",
+        "icone": "📍"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -17.447662,
+          14.740355
         ]
       }
     }
