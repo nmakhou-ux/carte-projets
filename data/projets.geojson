@@ -237,26 +237,6 @@
     {
       "type": "Feature",
       "properties": {
-        "nom": "construction 2ème phase TER Diamniadio-AIBD",
-        "montant": "100000000000",
-        "montant_decaisse": "90000000000",
-        "region": "Dakar",
-        "statut": "Terminé",
-        "responsable": "APIX",
-        "taux_execution": "100",
-        "icone": "📍"
-      },
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          -16.817322,
-          14.926208
-        ]
-      }
-    },
-    {
-      "type": "Feature",
-      "properties": {
         "nom": "extension projet TER",
         "montant": "2200000000000",
         "montant_decaisse": "120000000000",
@@ -271,6 +251,26 @@
         "coordinates": [
           -17.447662,
           14.740355
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "nom": "construction 2ème phase TER Diamniadio-AIBD",
+        "montant": "100000000000",
+        "montant_decaisse": "90000000000",
+        "region": "Dakar",
+        "statut": "Terminé",
+        "responsable": "APIX",
+        "taux_execution": "100",
+        "icone": ""
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -16.817322,
+          14.926208
         ]
       }
     }
