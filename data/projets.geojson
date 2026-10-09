@@ -1,0 +1,278 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "nom": "Exemple — Forage de Ndiass",
+        "montant": "125000000",
+        "montant_decaisse": "80000000",
+        "region": "Thiès",
+        "statut": "En cours",
+        "responsable": "A. Diop",
+        "taux_execution": "65"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -17.07,
+          14.67
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "nom": "Construction terminal port de dakar",
+        "montant": "45000000000",
+        "montant_decaisse": "",
+        "region": "Dakar",
+        "statut": "En cours",
+        "responsable": "DIP",
+        "taux_execution": "0",
+        "icone": ""
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -17.442169,
+          14.681911
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "nom": "Construction Hhôpital de Saint louis",
+        "montant": "46000000000",
+        "montant_decaisse": "12000000000",
+        "region": "Saint louis",
+        "statut": "En retard",
+        "responsable": "DIS",
+        "taux_execution": "15"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -16.413574,
+          16.193575
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "nom": "Construction Hopital regional de Kédougou",
+        "montant": "25000000000",
+        "montant_decaisse": "25000000000",
+        "region": "Kédougou",
+        "statut": "Terminé",
+        "responsable": "DIS",
+        "taux_execution": "0"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -12.403564,
+          12.715368
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "nom": "Construction pont de Ziguinchor",
+        "montant": "52000000000",
+        "montant_decaisse": "12000000000",
+        "region": "Ziguinchor",
+        "statut": "Planifié",
+        "responsable": "Ageroute",
+        "taux_execution": "30",
+        "icone": ""
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -16.261139,
+          12.537137
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "nom": "Construction lycée de Matam",
+        "montant": "2500000000",
+        "montant_decaisse": "1200000000",
+        "region": "Matam",
+        "statut": "En cours",
+        "responsable": "DIE",
+        "taux_execution": "45"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -13.820801,
+          15.871525
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "nom": "Construction du port sec de Tambacounda",
+        "montant": "54000000000",
+        "montant_decaisse": "",
+        "region": "Tambacounda",
+        "statut": "Planifié",
+        "responsable": "AGEROUTE",
+        "taux_execution": "0"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -13.612061,
+          13.624633
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "nom": "Construction hôpital de Touba",
+        "montant": "46000000000",
+        "montant_decaisse": "25000000000",
+        "region": "Diourbel",
+        "statut": "En cours",
+        "responsable": "",
+        "taux_execution": "60"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -15.954895,
+          14.839939
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "nom": "Construction centre de santé de Linguère",
+        "montant": "3000000000",
+        "montant_decaisse": "3000000000",
+        "region": "Louga",
+        "statut": "Terminé",
+        "responsable": "",
+        "taux_execution": "0"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -15.249023,
+          15.315976
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "nom": "Agropole centre",
+        "montant": "105000000000",
+        "montant_decaisse": "25000000000",
+        "region": "Tambacounda",
+        "statut": "En cours",
+        "responsable": "",
+        "taux_execution": "25",
+        "icone": ""
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -15.413818,
+          14.179186
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "nom": "extension rail tamba kidira",
+        "montant": "104000000000",
+        "montant_decaisse": "25000000000",
+        "region": "Tambacounda",
+        "statut": "En cours",
+        "responsable": "",
+        "taux_execution": "50",
+        "icone": ""
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -13.425293,
+          14.285677
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "nom": "extension projet TER",
+        "montant": "2200000000000",
+        "montant_decaisse": "120000000000",
+        "region": "Dakar",
+        "statut": "Planifié",
+        "responsable": "",
+        "taux_execution": "90",
+        "icone": ""
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -17.447662,
+          14.740355
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "nom": "université senegal oriental",
+        "montant": "105000000000",
+        "montant_decaisse": "90000000000",
+        "region": "Tambacounda",
+        "statut": "En cours",
+        "responsable": "",
+        "taux_execution": "60",
+        "icone": ""
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -12.996826,
+          13.784737
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "nom": "construction 2ème phase TER Diamniadio-AIBD",
+        "montant": "100000000000",
+        "montant_decaisse": "90000000000",
+        "region": "Dakar",
+        "statut": "Terminé",
+        "responsable": "APIX",
+        "taux_execution": "100",
+        "icone": "📍"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -16.817322,
+          14.926208
+        ]
+      }
+    }
+  ]
+}
